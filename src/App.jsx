@@ -15,7 +15,7 @@ import {
   UserRound,
   Users,
 } from "lucide-react";
-import rosterSource from "./data/rosters.json";
+import studentSeed from "./data/students_p4_2_35.json";
 import { getSupabaseClient } from "./supabaseClient";
 
 const CLASS_ID = "c-p4-2";
@@ -204,7 +204,7 @@ function App() {
     if (!window.confirm("นำเข้ารายชื่อนักเรียน ป.4/2 จำนวน 35 คนเข้า Supabase ใช่ไหม?")) return;
     setLoading(true);
     try {
-      const rows = (rosterSource[CLASS_ID] || []).map(normalizeRosterStudent);
+      const rows = studentSeed.map(normalizeRosterStudent);
       const { error } = await supabase.from("students").upsert(rows, { onConflict: "student_id" });
       if (error) throw error;
       await loadAll();
