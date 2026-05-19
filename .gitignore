@@ -3,6 +3,7 @@ dist/
 .vite/
 *.local
 tmp/
+tools/
 vite-dev*.log
 vite-current*.log
 .agents/

@@ -15,6 +15,7 @@
    - เพิ่มคอลัมน์ `classroom_id` ค่า `c-p4-2`
    - แปลง `active`: `1` เป็น `true`
    - ถ้ายังไม่มีรูปใน Supabase ให้เว้น `photo_path`
+   - ทางลัด: รัน `supabase/seed_students_p4_2.sql` ได้เลย มีข้อมูลจริง 35 คน
 2. Import `Homework` เฉพาะถ้ามีงานจริง
 3. Import `Attendance` เฉพาะข้อมูลจริง
 4. Import `HomeworkStatus`
