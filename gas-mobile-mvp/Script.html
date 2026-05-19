@@ -1,0 +1,1204 @@
+<script>
+  const safeStorage = {
+    get(key) {
+      try {
+        return window.localStorage ? window.localStorage.getItem(key) : "";
+      } catch (error) {
+        return "";
+      }
+    },
+    set(key, value) {
+      try {
+        if (window.localStorage) window.localStorage.setItem(key, value);
+      } catch (error) {
+        // Some Apps Script iframe contexts block storage; login still works for the current session.
+      }
+    },
+    remove(key) {
+      try {
+        if (window.localStorage) window.localStorage.removeItem(key);
+      } catch (error) {
+        // Ignore blocked storage.
+      }
+    },
+  };
+
+  const state = {
+    token: safeStorage.get("smt42-token") || "",
+    data: null,
+    currentUser: null,
+    tab: "dashboard",
+  };
+
+  const TITLES = {
+    dashboard: "แดชบอร์ดหลัก",
+    students: "โปรไฟล์นักเรียน",
+    attendance: "เช็คชื่อวันนี้",
+    homework: "งานค้าง",
+    behavior: "พฤติกรรม / คะแนน",
+    followup: "ติดตามนักเรียน",
+    weekly: "สรุปรายสัปดาห์",
+    report: "รายงานสรุป",
+  };
+
+  const $ = (id) => document.getElementById(id);
+
+  document.addEventListener("DOMContentLoaded", () => {
+    applyLogos();
+    loadPublicConfig();
+    $("loginForm").addEventListener("submit", (event) => {
+      event.preventDefault();
+      login();
+    });
+    $("refreshBtn").addEventListener("click", refresh);
+    $("switchTeacherBtn").addEventListener("click", switchRecorder);
+    $("mobileMenuBtn").addEventListener("click", () => $("mobileMenu").classList.remove("hidden"));
+    $("mobileCloseBtn").addEventListener("click", closeMobileMenu);
+    document.querySelector(".drawer-backdrop").addEventListener("click", closeMobileMenu);
+    document.querySelectorAll("[data-tab]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        switchTab(btn.dataset.tab);
+        closeMobileMenu();
+      });
+    });
+    if (state.token) {
+      showMain();
+      refresh();
+    }
+    refreshIcons();
+  });
+
+  function runApi(payload) {
+    return new Promise((resolve, reject) => {
+      google.script.run
+        .withSuccessHandler((value) => resolve(value || { ok: false, error: "ระบบไม่ส่งข้อมูลกลับจาก Apps Script" }))
+        .withFailureHandler((error) => reject(error))
+        .api(payload);
+    });
+  }
+
+  async function login() {
+    try {
+      $("loginError").textContent = "";
+      $("loginBtn").disabled = true;
+      $("loginBtn").textContent = "กำลังเข้าสู่ระบบ...";
+      const pin = $("pinInput").value.trim();
+      const teacherSelect = $("teacherSelect");
+      const teacherIndex = teacherSelect ? teacherSelect.value : "1";
+      const res = await runApi({ action: "login", pin, teacher_index: teacherIndex });
+      if (!res || !res.ok) {
+        $("loginError").textContent = res && res.error ? res.error : "เข้าสู่ระบบไม่สำเร็จ: ระบบไม่ส่งข้อมูลกลับ";
+        return;
+      }
+      state.token = res.token;
+      state.currentUser = res.user || null;
+      safeStorage.set("smt42-token", state.token);
+      safeStorage.set("smt42-teacher-index", teacherIndex);
+      state.data = res.bootstrap;
+      showMain();
+      render();
+      toast("เข้าสู่ระบบแล้ว");
+    } catch (error) {
+      $("loginError").textContent = error && error.message ? error.message : "เชื่อมต่อระบบไม่สำเร็จ";
+    } finally {
+      $("loginBtn").disabled = false;
+      $("loginBtn").textContent = "เข้าสู่ระบบ";
+    }
+  }
+
+  async function refresh() {
+    try {
+      if (!state.token) return;
+      const res = await runApi({ action: "bootstrap", token: state.token });
+      if (!res || !res.ok) {
+        safeStorage.remove("smt42-token");
+        state.token = "";
+        $("mainView").classList.add("hidden");
+        $("loginView").classList.remove("hidden");
+        $("loginError").textContent = res && res.error ? res.error : "กรุณาเข้าสู่ระบบใหม่";
+        return;
+      }
+      state.currentUser = res.user || res.bootstrap.currentUser || null;
+      state.data = res.bootstrap;
+      render();
+    } catch (error) {
+      safeStorage.remove("smt42-token");
+      state.token = "";
+      $("mainView").classList.add("hidden");
+      $("loginView").classList.remove("hidden");
+      $("loginError").textContent = error && error.message ? error.message : "กรุณาเข้าสู่ระบบใหม่";
+    }
+  }
+
+  async function loadPublicConfig() {
+    try {
+      const res = await runApi({ action: "publicConfig" });
+      if (!res || !res.ok || !res.teachers) return;
+      const selected = safeStorage.get("smt42-teacher-index") || "1";
+      $("teacherSelect").innerHTML = res.teachers.map((teacher) => (
+        `<option value="${teacher.index}" ${String(teacher.index) === selected ? "selected" : ""}>${escapeHtml(teacher.name)}</option>`
+      )).join("");
+    } catch (error) {
+      console.warn("publicConfig failed", error);
+    }
+  }
+
+  function showMain() {
+    $("loginView").classList.add("hidden");
+    $("mainView").classList.remove("hidden");
+  }
+
+  function closeMobileMenu() {
+    $("mobileMenu").classList.add("hidden");
+  }
+
+  function switchRecorder() {
+    safeStorage.remove("smt42-token");
+    state.token = "";
+    state.data = null;
+    state.currentUser = null;
+    $("mainView").classList.add("hidden");
+    $("loginView").classList.remove("hidden");
+    $("pinInput").value = "";
+    $("loginError").textContent = "เลือกชื่อผู้บันทึกแล้วเข้าสู่ระบบอีกครั้ง";
+  }
+
+  function switchTab(tab) {
+    state.tab = tab;
+    document.querySelectorAll(".tab-panel").forEach((panel) => panel.classList.add("hidden"));
+    $(`${tab}Tab`).classList.remove("hidden");
+    document.querySelectorAll("[data-tab]").forEach((btn) => btn.classList.toggle("active", btn.dataset.tab === tab));
+    $("pageTitle").textContent = TITLES[tab] || "";
+    render();
+  }
+
+  function render() {
+    if (!state.data) return;
+    $("lastUpdated").textContent = `อัปเดต ${timeText(state.data.updatedAt)}`;
+    renderTeacherTeam();
+    renderDashboard();
+    renderAttendance();
+    renderHomework();
+    renderBehavior();
+    renderFollowUp();
+    renderWeekly();
+    renderStudents();
+    renderReport();
+    refreshIcons();
+  }
+
+  function renderDashboard() {
+    const d = state.data.dashboard;
+    $("dashboardTab").innerHTML = `
+      <section class="cards fade-in">
+        ${metric("นักเรียนทั้งหมด", d.studentCount, "users", "SMT ป.4/2")}
+        ${metric("ครูประจำชั้น", `${teacherNames().length} คน`, "user-check", teacherNames().join(" · "))}
+        ${metric("แจ้งเตือนวันนี้", d.alertSummary ? d.alertSummary.total : 0, "bell-ring", `${d.alertSummary ? d.alertSummary.focus : 0} รายการเร่งด่วน`)}
+        ${metric("มา / สาย", `${d.attendance.present}/${d.attendance.late}`, "check-circle", "เช็คชื่อวันนี้")}
+        ${metric("ขาด / ลา", `${d.attendance.absent}/${d.attendance.leave}`, "alert-circle", "ต้องติดตาม")}
+        ${metric("งานค้าง", d.missingHomework, "book-check", `${d.activeHomework} งานที่เปิดอยู่`)}
+        ${metric("ติดตามเปิดอยู่", d.openFollowUps, "phone-call", "คุยต่อ/นัดผู้ปกครอง")}
+      </section>
+      <section class="panel alert-panel fade-in">
+        <div class="action-row" style="justify-content:space-between">
+          <div>
+            <h2>แจ้งเตือนติดตามวันนี้</h2>
+            <p class="panel-note">ระบบจัดลำดับจากการมาเรียน งานค้าง พฤติกรรม คะแนน และรายการติดตามที่ยังเปิดอยู่</p>
+          </div>
+          <div class="chip-row">
+            <span class="chip danger">เร่งด่วน ${d.alertSummary ? d.alertSummary.focus : 0}</span>
+            <span class="chip warn">เฝ้าดู ${d.alertSummary ? d.alertSummary.watch : 0}</span>
+          </div>
+        </div>
+        <div class="alert-stack">
+          ${
+            d.alerts && d.alerts.length
+              ? d.alerts.map((item) => alertRow(item)).join("")
+              : `<div class="row-lite"><span class="seq">✓</span><div><strong>วันนี้ยังไม่มีรายการแจ้งเตือน</strong><div class="muted">เมื่อมีนักเรียนขาด สาย งานค้าง หรือรายการติดตาม ระบบจะแสดงที่นี่</div></div><span></span></div>`
+          }
+        </div>
+      </section>
+      <section class="chart-grid fade-in">
+        <div class="panel chart-panel">
+          <h2>การเข้าเรียน 7 วันล่าสุด</h2>
+          <p class="panel-note">มา / สาย / ขาด / ลา แยกรายวัน</p>
+          ${attendanceChart(d.charts.attendance7)}
+        </div>
+        <div class="panel chart-panel">
+          <h2>งานค้าง Top 10</h2>
+          <p class="panel-note">เรียงจากจำนวนงานที่ยังไม่บันทึกว่าส่งแล้ว</p>
+          ${homeworkTopChart(d.charts.homeworkTop)}
+        </div>
+        <div class="panel chart-panel">
+          <h2>พฤติกรรม 30 วัน</h2>
+          <p class="panel-note">บวก / ต้องติดตาม / หมายเหตุ</p>
+          ${behaviorChart(d.charts.behavior30)}
+        </div>
+        <div class="panel chart-panel">
+          <h2>สัดส่วนความเสี่ยง</h2>
+          <p class="panel-note">ปกติ / เฝ้าดู / เร่งด่วน</p>
+          ${riskChart(d.charts.riskDistribution)}
+        </div>
+      </section>
+      <section class="dashboard-grid">
+        <div class="panel fade-in">
+          <h2>แนวโน้มที่ครูควรดูวันนี้</h2>
+          <p class="panel-note">สรุปจากข้อมูล 30 วันล่าสุด เพื่อช่วยลดเวลาค้นหานักเรียนที่ต้องติดตาม</p>
+          <div class="list">
+            ${
+              d.watchList.length
+                ? d.watchList.map((p) => watchRow(p)).join("")
+                : `<div class="row-lite"><span class="seq">✓</span><div><strong>ยังไม่มีนักเรียนที่เข้าเกณฑ์ติดตาม</strong><div class="muted">ข้อมูลปัจจุบันอยู่ในเกณฑ์ปกติ</div></div><span></span></div>`
+            }
+          </div>
+        </div>
+        <div class="panel fade-in">
+          <h2>ภาพรวมห้อง</h2>
+          <div class="profile-grid">
+            <div class="row"><span>คะแนนเฉลี่ยที่บันทึก</span><strong>${d.classAvgScore}%</strong></div>
+            <div class="row"><span>ครูประจำชั้น</span><strong>${teacherNames().length} คน</strong></div>
+            <div class="row"><span>พฤติกรรม 30 วัน</span><strong>${d.behavior30} รายการ</strong></div>
+            <div class="row"><span>งานที่เปิดติดตาม</span><strong>${d.activeHomework} งาน</strong></div>
+            <div class="row"><span>รายการติดตามเปิดอยู่</span><strong>${d.openFollowUps} รายการ</strong></div>
+            <div class="row"><span>ยังไม่เช็คชื่อวันนี้</span><strong>${d.attendance.unchecked} คน</strong></div>
+          </div>
+          <div class="chip-row" style="margin-top:12px">
+            <span class="chip ok">มา ${d.attendance.present}</span>
+            <span class="chip warn">สาย ${d.attendance.late}</span>
+            <span class="chip danger">ขาด ${d.attendance.absent}</span>
+            <span class="chip">ลา ${d.attendance.leave}</span>
+          </div>
+        </div>
+      </section>
+    `;
+  }
+
+  function renderAttendance() {
+    const map = state.data.attendanceToday || {};
+    $("attendanceTab").innerHTML = `
+      <section class="panel">
+        <div class="action-row" style="justify-content:space-between">
+          <div>
+            <h2>เช็คชื่อวันนี้</h2>
+            <p class="panel-note">${state.data.today}</p>
+          </div>
+          <div class="action-row">
+            <button class="secondary-btn" onclick="markAllPresent()">มาทั้งหมด</button>
+            <button class="primary-btn" onclick="saveAttendance()">บันทึก</button>
+          </div>
+        </div>
+      </section>
+      <section class="list">
+        ${state.data.students.map((s) => attendanceCard(s, attendanceEntryFor(s.student_id, map))).join("")}
+      </section>
+    `;
+  }
+
+  function renderHomework() {
+    $("homeworkTab").innerHTML = `
+      <section class="panel">
+        <h2>เพิ่มงานที่ต้องติดตาม</h2>
+        <div class="form-grid">
+          <label class="field">ชื่องาน<input id="hwTitle" placeholder="เช่น แบบฝึกคณิต บทที่ 1"></label>
+          <div class="form-row">
+            <label class="field">วิชา<input id="hwSubject" placeholder="ทั่วไป"></label>
+            <label class="field">กำหนดส่ง<input id="hwDue" type="date"></label>
+          </div>
+          <button class="primary-btn" onclick="createHomework()">เพิ่มงาน</button>
+        </div>
+      </section>
+      <section class="list">
+        ${state.data.homework.length ? state.data.homework.map((h) => homeworkCard(h)).join("") : `<div class="panel">ยังไม่มีงานที่เปิดติดตาม</div>`}
+      </section>
+    `;
+  }
+
+  function renderBehavior() {
+    $("behaviorTab").innerHTML = `
+      <section class="dashboard-grid">
+        <div class="panel">
+          <h2>บันทึกพฤติกรรม/การติดตาม</h2>
+          <div class="form-grid">
+            <label class="field">นักเรียน<select id="behaviorStudent">${studentOptions()}</select></label>
+            <div class="form-row">
+              <label class="field">ประเภท
+                <select id="behaviorCategory">
+                  <option>การเรียน</option>
+                  <option>การมาเรียน</option>
+                  <option>พฤติกรรม</option>
+                  <option>สุขภาพ/อารมณ์</option>
+                  <option>ติดต่อผู้ปกครอง</option>
+                </select>
+              </label>
+              <label class="field">น้ำหนัก
+                <select id="behaviorTone">
+                  <option value="note">บันทึกทั่วไป</option>
+                  <option value="positive">เชิงบวก</option>
+                  <option value="negative">ต้องระวัง</option>
+                  <option value="follow">ต้องติดตาม</option>
+                </select>
+              </label>
+            </div>
+            <label class="field">รายละเอียด<textarea id="behaviorNote" placeholder="เขียนสั้น ๆ พอใช้ติดตามต่อได้"></textarea></label>
+            <label><input id="behaviorFollow" type="checkbox"> ต้อง follow-up</label>
+            <button class="primary-btn" onclick="addBehavior()">บันทึกพฤติกรรม</button>
+          </div>
+        </div>
+        <div class="panel">
+          <h2>บันทึกคะแนนสั้น ๆ</h2>
+          <div class="form-grid">
+            <label class="field">นักเรียน<select id="scoreStudent">${studentOptions()}</select></label>
+            <label class="field">ด้าน/วิชา<input id="scoreArea" placeholder="อ่าน, คณิต, SMT"></label>
+            <label class="field">คะแนน<input id="scoreValue" type="number" min="0" max="100" placeholder="0-100"></label>
+            <label class="field">หมายเหตุ<input id="scoreNote" placeholder="เช่น อ่านคล่องขึ้น"></label>
+            <button class="secondary-btn" onclick="addScore()">บันทึกคะแนน</button>
+          </div>
+        </div>
+      </section>
+    `;
+  }
+
+  function renderFollowUp() {
+    const rows = state.data.followUps || [];
+    const openRows = rows.filter((r) => (r.status || "open") === "open");
+    const recentRows = rows.slice(-12).reverse();
+    $("followupTab").innerHTML = `
+      <section class="dashboard-grid">
+        <div class="panel">
+          <h2>บันทึกการติดตาม</h2>
+          <p class="panel-note">ใช้เมื่อคุยกับนักเรียน โทร/ไลน์ผู้ปกครอง หรือนัดติดตามครั้งถัดไป</p>
+          <div class="form-grid">
+            <label class="field">นักเรียน<select id="followStudent">${studentOptions()}</select></label>
+            <label class="field">เรื่องที่ติดตาม<input id="followTopic" placeholder="เช่น ขาดเรียน, งานค้าง, พฤติกรรม, สุขภาพ"></label>
+            <div class="form-row">
+              <label class="field">วิธีติดตาม
+                <select id="followMethod">
+                  <option>พูดคุยนักเรียน</option>
+                  <option>โทรผู้ปกครอง</option>
+                  <option>ไลน์ผู้ปกครอง</option>
+                  <option>พบผู้ปกครอง</option>
+                </select>
+              </label>
+              <label class="field">นัดครั้งถัดไป<input id="followNextDate" type="date"></label>
+            </div>
+            <label class="field">บันทึกสั้น ๆ<textarea id="followNote" placeholder="ผลการพูดคุย/สิ่งที่ต้องทำต่อ"></textarea></label>
+            <button class="primary-btn" onclick="addFollowUp()">บันทึกติดตาม</button>
+          </div>
+        </div>
+        <div class="panel">
+          <h2>รายการที่ยังเปิดอยู่</h2>
+          <div class="list">
+            ${openRows.length ? openRows.map((r) => followUpRow(r, true)).join("") : `<div class="row-lite"><span class="seq">✓</span><div><strong>ไม่มีรายการค้างติดตาม</strong><div class="muted">รายการที่เสร็จแล้วจะอยู่ในประวัติล่าสุด</div></div><span></span></div>`}
+          </div>
+        </div>
+      </section>
+      <section class="panel">
+        <h2>ประวัติล่าสุด</h2>
+        <div class="list">
+          ${recentRows.length ? recentRows.map((r) => followUpRow(r, false)).join("") : `<p class="panel-note">ยังไม่มีประวัติการติดตาม</p>`}
+        </div>
+      </section>
+    `;
+  }
+
+  function renderReport() {
+    const d = state.data.dashboard;
+    const text = buildClassReportText();
+    $("reportTab").innerHTML = `
+      <section class="dashboard-grid">
+        <div class="panel">
+          <div class="action-row" style="justify-content:space-between">
+            <div>
+              <h2>รายงานภาพรวมห้อง</h2>
+              <p class="panel-note">สรุปพร้อมส่งต่อหรือเก็บเป็นบันทึกประจำวัน</p>
+            </div>
+            <button class="primary-btn" onclick="copyReport()">คัดลอกรายงาน</button>
+          </div>
+          <textarea id="classReportText" class="report-text" readonly>${escapeHtml(text)}</textarea>
+        </div>
+        <div class="panel">
+          <h2>ตัวชี้วัดสำคัญ</h2>
+          <div class="profile-grid">
+            <div class="row"><span>นักเรียนทั้งหมด</span><strong>${d.studentCount} คน</strong></div>
+            <div class="row"><span>มา/สาย วันนี้</span><strong>${d.attendance.present}/${d.attendance.late}</strong></div>
+            <div class="row"><span>ขาด/ลา วันนี้</span><strong>${d.attendance.absent}/${d.attendance.leave}</strong></div>
+            <div class="row"><span>งานค้างรวม</span><strong>${d.missingHomework} รายการ</strong></div>
+            <div class="row"><span>ติดตามเปิดอยู่</span><strong>${d.openFollowUps} รายการ</strong></div>
+          </div>
+        </div>
+      </section>
+      <section class="panel">
+        <h2>นักเรียนที่ระบบเสนอให้ติดตาม</h2>
+        <div class="list">
+          ${d.watchList.length ? d.watchList.map((p) => watchRow(p)).join("") : `<p class="panel-note">ยังไม่มีนักเรียนที่เข้าเกณฑ์ติดตาม</p>`}
+        </div>
+      </section>
+    `;
+  }
+
+  function renderWeekly() {
+    const w = state.data.weekly;
+    const backup = state.data.backup || {};
+    $("weeklyTab").innerHTML = `
+      <section class="cards fade-in">
+        ${metric("มา / สาย", `${w.attendance.present}/${w.attendance.late}`, "check-circle", `${w.start} ถึง ${w.end}`)}
+        ${metric("ขาด / ลา", `${w.attendance.absent}/${w.attendance.leave}`, "alert-circle", "รวม 7 วันล่าสุด")}
+        ${metric("งานค้าง", w.missingHomework, "book-check", `${w.activeHomework} งานที่เปิดอยู่`)}
+        ${metric("พฤติกรรม + / -", `${w.behavior.positive}/${w.behavior.negative}`, "heart-handshake", `${w.behavior.total} รายการ`)}
+      </section>
+      <section class="dashboard-grid">
+        <div class="panel">
+          <h2>สรุป 7 วันล่าสุด</h2>
+          <p class="panel-note">${w.start} ถึง ${w.end}</p>
+          <div class="profile-grid">
+            <div class="row"><span>บันทึกเช็คชื่อทั้งหมด</span><strong>${w.attendanceRecords} รายการ</strong></div>
+            <div class="row"><span>มาเรียน</span><strong>${w.attendance.present}</strong></div>
+            <div class="row"><span>มาสาย</span><strong>${w.attendance.late}</strong></div>
+            <div class="row"><span>ขาด</span><strong>${w.attendance.absent}</strong></div>
+            <div class="row"><span>ลา</span><strong>${w.attendance.leave}</strong></div>
+            <div class="row"><span>ติดตามเปิดอยู่</span><strong>${w.openFollowUps} รายการ</strong></div>
+          </div>
+        </div>
+        <div class="panel">
+          <h2>ระบบสำรองข้อมูล</h2>
+          <p class="panel-note">สร้างไฟล์ Google Sheets สำเนาไว้ใน Drive ของเจ้าของระบบ</p>
+          <div class="profile-grid">
+            <div class="row"><span>สำรองล่าสุด</span><strong>${backup.lastAt ? escapeHtml(backup.lastAt) : "-"}</strong></div>
+            <div class="row"><span>โหมด</span><strong>${backup.lastMode ? escapeHtml(backup.lastMode) : "-"}</strong></div>
+            <div class="row"><span>สำรองอัตโนมัติ</span><strong>${backup.weeklyEnabled ? "เปิดแล้ว" : "ยังไม่เปิด"}</strong></div>
+          </div>
+          <div class="action-row" style="margin-top:12px">
+            <button class="primary-btn" onclick="runBackup()">สำรองข้อมูลตอนนี้</button>
+            <button class="small-btn" onclick="installWeeklyBackup()">เปิด Backup ทุกวันศุกร์</button>
+            ${backup.lastUrl ? `<a class="small-btn link-btn" href="${escapeHtml(backup.lastUrl)}" target="_blank" rel="noopener">เปิดไฟล์ล่าสุด</a>` : ""}
+          </div>
+        </div>
+      </section>
+      <section class="panel">
+        <h2>นักเรียนที่ควรติดตามประจำสัปดาห์</h2>
+        <div class="list">
+          ${w.followStudents.length ? w.followStudents.map((p) => watchRow(p)).join("") : `<p class="panel-note">ยังไม่มีนักเรียนที่เข้าเกณฑ์ติดตาม</p>`}
+        </div>
+      </section>
+    `;
+  }
+
+  function renderStudents() {
+    $("studentsTab").innerHTML = `
+      <section class="profile-layout">
+        <div class="panel">
+          <h2>รายชื่อนักเรียน</h2>
+          <p class="panel-note">แตะเพื่อดูข้อมูลผู้ปกครองและวิเคราะห์รายบุคคล</p>
+          <div class="list">
+            ${state.data.students.map((s) => studentCard(s)).join("")}
+          </div>
+        </div>
+        <div id="studentProfile" class="panel hidden"></div>
+      </section>
+    `;
+  }
+
+  function metric(label, value, icon, note) {
+    return `
+      <article class="metric">
+        <div class="metric-head"><span>${label}</span><span class="metric-icon"><i data-lucide="${icon}"></i></span></div>
+        <strong>${value}</strong>
+        <small>${note}</small>
+      </article>
+    `;
+  }
+
+  function attendanceChart(rows) {
+    const data = rows || [];
+    const max = Math.max(1, ...data.map((row) => Number(row.present || 0) + Number(row.late || 0) + Number(row.absent || 0) + Number(row.leave || 0)));
+    return `
+      <div class="attendance-chart">
+        ${data.map((row) => {
+          const present = Number(row.present || 0);
+          const late = Number(row.late || 0);
+          const absent = Number(row.absent || 0);
+          const leave = Number(row.leave || 0);
+          const total = present + late + absent + leave;
+          const height = Math.max(8, Math.round((total / max) * 110));
+          return `
+            <div class="day-bar">
+              <div class="stack" style="height:${height}px">
+                ${stackSegment("present", present, total)}
+                ${stackSegment("late", late, total)}
+                ${stackSegment("absent", absent, total)}
+                ${stackSegment("leave", leave, total)}
+              </div>
+              <strong>${total}</strong>
+              <span>${escapeHtml(row.label || "")}</span>
+            </div>
+          `;
+        }).join("")}
+      </div>
+      <div class="chart-legend">
+        <span><i class="dot present"></i>มา</span>
+        <span><i class="dot late"></i>สาย</span>
+        <span><i class="dot absent"></i>ขาด</span>
+        <span><i class="dot leave"></i>ลา</span>
+      </div>
+    `;
+  }
+
+  function stackSegment(type, value, total) {
+    if (!value || !total) return "";
+    const height = Math.max(8, (Number(value) / Number(total)) * 100);
+    return `<span class="${type}" style="height:${height}%" title="${type}: ${value}"></span>`;
+  }
+
+  function homeworkTopChart(rows) {
+    const data = rows || [];
+    if (!data.length) return `<div class="empty-chart">ยังไม่มีงานค้าง</div>`;
+    const max = Math.max(1, ...data.map((row) => Number(row.missing || 0)));
+    return `
+      <div class="rank-chart">
+        ${data.map((row) => `
+          <button class="rank-row" onclick="openProfile('${jsAttr(row.student_id)}')">
+            <span>${escapeHtml(row.seq)}. ${escapeHtml(row.name)}</span>
+            <div><i style="width:${Math.max(8, Math.round((Number(row.missing || 0) / max) * 100))}%"></i></div>
+            <strong>${escapeHtml(row.missing)}</strong>
+          </button>
+        `).join("")}
+      </div>
+    `;
+  }
+
+  function behaviorChart(data) {
+    const d = data || {};
+    const total = Math.max(0, Number(d.total || 0));
+    if (!total) return `<div class="empty-chart">ยังไม่มีบันทึกพฤติกรรมใน 30 วัน</div>`;
+    return `
+      <div class="mini-bars">
+        ${horizontalBar("บวก", d.positive, total, "ok")}
+        ${horizontalBar("ต้องติดตาม", d.negative, total, "danger")}
+        ${horizontalBar("หมายเหตุ", d.neutral, total, "muted")}
+      </div>
+    `;
+  }
+
+  function riskChart(data) {
+    const d = data || {};
+    const total = Math.max(1, Number(d.total || 0));
+    const normal = Number(d.normal || 0);
+    const watch = Number(d.watch || 0);
+    const focus = Number(d.focus || 0);
+    const normalDeg = (normal / total) * 360;
+    const watchDeg = normalDeg + (watch / total) * 360;
+    return `
+      <div class="donut-wrap">
+        <div class="donut" style="background: conic-gradient(#16a34a 0deg ${normalDeg}deg, #d97706 ${normalDeg}deg ${watchDeg}deg, #e11d48 ${watchDeg}deg 360deg)">
+          <span>${total}</span>
+        </div>
+        <div class="mini-bars">
+          ${horizontalBar("ปกติ", normal, total, "ok")}
+          ${horizontalBar("เฝ้าดู", watch, total, "warn")}
+          ${horizontalBar("เร่งด่วน", focus, total, "danger")}
+        </div>
+      </div>
+    `;
+  }
+
+  function horizontalBar(label, value, total, tone) {
+    const count = Number(value || 0);
+    const percent = total ? Math.round((count / total) * 100) : 0;
+    return `
+      <div class="hbar ${tone}">
+        <div class="hbar-head"><span>${escapeHtml(label)}</span><strong>${count}</strong></div>
+        <div class="hbar-track"><i style="width:${Math.max(count ? 6 : 0, percent)}%"></i></div>
+      </div>
+    `;
+  }
+
+  function watchRow(profile) {
+    const a = profile.analysis;
+    return `
+      <button class="row-lite" onclick="openProfile('${profile.student.student_id}')">
+        <span class="seq">${profile.student.seq}</span>
+        <div><strong>${escapeHtml(profile.student.full_name)}</strong><div class="muted">${escapeHtml(a.reasons[0] || "")}</div></div>
+        <span class="risk ${a.level}">${a.riskScore}</span>
+      </button>
+    `;
+  }
+
+  function alertRow(item) {
+    const statusText = item.statusLabel ? `วันนี้: ${escapeHtml(item.statusLabel)} · ` : "";
+    const phone = item.phone ? `<a class="small-btn" href="tel:${escapeHtml(item.phone)}">โทร</a>` : "";
+    return `
+      <article class="alert-card ${escapeHtml(item.severity)}">
+        <div class="alert-head">
+          <span class="seq">${escapeHtml(item.seq || "-")}</span>
+          <div>
+            <strong>${escapeHtml(item.full_name)}</strong>
+            <div class="muted">${statusText}${escapeHtml(item.reason || "ควรติดตาม")}</div>
+          </div>
+          <span class="alert-badge ${escapeHtml(item.severity)}">${escapeHtml(item.severityLabel || "เฝ้าดู")}</span>
+        </div>
+        <div class="alert-body">
+          <span>แนวทาง: ${escapeHtml(item.action || "บันทึกการติดตาม")}</span>
+          <strong class="risk ${escapeHtml(item.severity)}">${escapeHtml(item.riskScore || 0)}</strong>
+        </div>
+        <div class="alert-actions">
+          ${phone}
+          <button class="small-btn" onclick="openProfile('${jsAttr(item.student_id)}')">ดูโปรไฟล์</button>
+          <button class="secondary-btn" onclick="startFollowUpFromAlert('${jsAttr(item.student_id)}', '${jsAttr(item.reason || item.action || "ติดตามนักเรียน")}')">บันทึกติดตาม</button>
+        </div>
+      </article>
+    `;
+  }
+
+  function attendanceCard(student, entry) {
+    const current = entry.status || "";
+    const meta = entry.by
+      ? `เช็คแล้วโดย ${escapeHtml(entry.by)}${entry.updated_at ? ` · ${escapeHtml(timeText(entry.updated_at))}` : ""}`
+      : "ยังไม่มีผู้บันทึกวันนี้";
+    return `
+      <article class="student-card" data-att-row="${student.student_id}" data-original-status="${escapeHtml(current)}" data-original-by="${escapeHtml(entry.by || "")}">
+        <div class="student-head">
+          <span class="seq">${student.seq}</span>
+          <div><strong>${escapeHtml(student.full_name)}</strong><small>${student.student_code || "-"} · ${student.phone || "ไม่มีเบอร์"}</small><small class="att-meta">${meta}</small></div>
+          <button class="small-btn" onclick="openProfile('${student.student_id}')">ดู</button>
+        </div>
+        <div class="status-grid">
+          ${statusButton(student.student_id, "present", "มา", current)}
+          ${statusButton(student.student_id, "late", "สาย", current)}
+          ${statusButton(student.student_id, "absent", "ขาด", current)}
+          ${statusButton(student.student_id, "leave", "ลา", current)}
+        </div>
+      </article>
+    `;
+  }
+
+  function statusButton(studentId, status, label, current) {
+    return `<button class="${current === status ? `active ${status}` : ""}" data-student="${studentId}" data-status="${status}" onclick="setAttendanceStatus(this)">${label}</button>`;
+  }
+
+  function attendanceEntryFor(studentId, map) {
+    const value = map && map[studentId];
+    if (!value) return { status: "", by: "", updated_at: "", note: "" };
+    if (typeof value === "string") return { status: value, by: "", updated_at: "", note: "" };
+    return value;
+  }
+
+  function setAttendanceStatus(btn) {
+    const row = btn.closest("[data-att-row]");
+    const originalStatus = row.dataset.originalStatus || "";
+    const originalBy = row.dataset.originalBy || "";
+    const nextStatus = btn.dataset.status || "";
+    const currentTeacher = currentRecorderName();
+    if (originalStatus && originalStatus !== nextStatus && originalBy && originalBy !== currentTeacher && row.dataset.overrideConfirmed !== "1") {
+      const ok = window.confirm(`${originalBy} เช็คชื่อรายการนี้ไว้แล้ว (${attendanceStatusText(originalStatus)})\nต้องการแก้เป็น "${attendanceStatusText(nextStatus)}" โดย ${currentTeacher} ใช่ไหม?`);
+      if (!ok) return;
+      row.dataset.overrideConfirmed = "1";
+    }
+    row.querySelectorAll(".status-grid button").forEach((b) => b.className = "");
+    btn.className = `active ${nextStatus}`;
+  }
+
+  function markAllPresent() {
+    const currentTeacher = currentRecorderName();
+    const overwrites = [];
+    document.querySelectorAll("[data-att-row]").forEach((row) => {
+      const originalStatus = row.dataset.originalStatus || "";
+      const originalBy = row.dataset.originalBy || "";
+      if (originalStatus && originalStatus !== "present" && originalBy && originalBy !== currentTeacher && row.dataset.overrideConfirmed !== "1") {
+        const name = row.querySelector(".student-head strong")?.textContent || row.dataset.attRow;
+        overwrites.push(`${name}: ${originalBy} (${attendanceStatusText(originalStatus)}) -> มา`);
+      }
+    });
+    if (overwrites.length) {
+      const ok = window.confirm(`มีรายการที่ครูท่านอื่นเช็คไว้แล้ว ${overwrites.length} รายการ\n\n${overwrites.slice(0, 6).join("\n")}${overwrites.length > 6 ? "\n..." : ""}\n\nต้องการเปลี่ยนเป็น "มา" ทั้งหมดใช่ไหม?`);
+      if (!ok) return;
+    }
+    document.querySelectorAll("[data-att-row]").forEach((row) => {
+      row.querySelectorAll(".status-grid button").forEach((b) => b.className = "");
+      row.querySelector('[data-status="present"]').className = "active present";
+      row.dataset.overrideConfirmed = "1";
+    });
+  }
+
+  async function saveAttendance() {
+    const items = [];
+    const overwrites = [];
+    const currentTeacher = currentRecorderName();
+    document.querySelectorAll("[data-att-row]").forEach((row) => {
+      const active = row.querySelector(".status-grid button.active");
+      if (active) {
+        const nextStatus = active.dataset.status;
+        const originalStatus = row.dataset.originalStatus || "";
+        const originalBy = row.dataset.originalBy || "";
+        if (originalStatus && originalStatus !== nextStatus && originalBy && originalBy !== currentTeacher && row.dataset.overrideConfirmed !== "1") {
+          const name = row.querySelector(".student-head strong")?.textContent || row.dataset.attRow;
+          overwrites.push(`${name}: ${originalBy} (${attendanceStatusText(originalStatus)}) -> ${attendanceStatusText(nextStatus)}`);
+        }
+        items.push({ student_id: row.dataset.attRow, status: nextStatus });
+      }
+    });
+    if (overwrites.length) {
+      const ok = window.confirm(`มีรายการที่ครูท่านอื่นเช็คไว้แล้ว ${overwrites.length} รายการ\n\n${overwrites.slice(0, 6).join("\n")}${overwrites.length > 6 ? "\n..." : ""}\n\nต้องการบันทึกทับใช่ไหม?`);
+      if (!ok) return;
+    }
+    const res = await runApi({ action: "saveAttendance", token: state.token, date: state.data.today, items });
+    await handleUpdate(res, "บันทึกเช็คชื่อแล้ว");
+  }
+
+  function attendanceStatusText(status) {
+    return ({ present: "มา", late: "สาย", absent: "ขาด", leave: "ลา" })[String(status || "")] || "-";
+  }
+
+  function homeworkCard(homework) {
+    const done = new Set((state.data.homeworkStatus || [])
+      .filter((r) => r.homework_id === homework.homework_id && r.status === "done")
+      .map((r) => r.student_id));
+    const missing = state.data.students.length - done.size;
+    return `
+      <article class="work-card">
+        <div class="student-head">
+          <span class="metric-icon"><i data-lucide="book-check"></i></span>
+          <div>
+            <strong>${escapeHtml(homework.title)}</strong>
+            <small>${escapeHtml(homework.subject || "ทั่วไป")} · ${homework.due || "ไม่กำหนดวันส่ง"}</small>
+            ${homework.created_by ? `<small>บันทึกโดย ${escapeHtml(homework.created_by)}</small>` : ""}
+          </div>
+          <span class="chip warn">ค้าง ${missing}</span>
+        </div>
+        <div class="chip-row"><span class="chip ok">ส่ง ${done.size}</span><span class="chip">ทั้งหมด ${state.data.students.length}</span></div>
+        <label class="field">ติ๊กส่งงาน
+          <select onchange="updateHomeworkStatus('${homework.homework_id}', this.value, 'done')">
+            <option value="">เลือกนักเรียน</option>
+            ${studentOptions()}
+          </select>
+        </label>
+      </article>
+    `;
+  }
+
+  function followUpRow(row, allowClose) {
+    const student = (state.data.students || []).find((s) => s.student_id === row.student_id) || {};
+    const isDone = String(row.status || "open") === "done";
+    return `
+      <article class="row-lite">
+        <span class="seq">${escapeHtml(student.seq || "-")}</span>
+        <div>
+          <strong>${escapeHtml(row.topic || "-")}</strong>
+          <div class="muted">${escapeHtml(student.full_name || "-")} · ${escapeHtml(row.method || "-")} · ${escapeHtml(row.date || "")}${row.next_date ? ` · นัด ${escapeHtml(row.next_date)}` : ""}</div>
+          ${(row.created_by || row.closed_by) ? `<div class="muted">บันทึกโดย ${escapeHtml(row.created_by || "-")}${row.closed_by ? ` · ปิดโดย ${escapeHtml(row.closed_by)}` : ""}</div>` : ""}
+          ${row.note ? `<div class="muted">${escapeHtml(row.note)}</div>` : ""}
+        </div>
+        ${
+          allowClose && !isDone
+            ? `<button class="small-btn" onclick="closeFollowUp('${row.followup_id}')">เสร็จ</button>`
+            : `<span class="chip ${isDone ? "ok" : "warn"}">${isDone ? "เสร็จ" : "เปิดอยู่"}</span>`
+        }
+      </article>
+    `;
+  }
+
+  async function createHomework() {
+    const res = await runApi({
+      action: "createHomework",
+      token: state.token,
+      title: $("hwTitle").value,
+      subject: $("hwSubject").value,
+      due: $("hwDue").value,
+    });
+    await handleUpdate(res, "เพิ่มงานแล้ว");
+  }
+
+  async function updateHomeworkStatus(homeworkId, studentId, status) {
+    if (!studentId) return;
+    const res = await runApi({ action: "updateHomeworkStatus", token: state.token, homework_id: homeworkId, student_id: studentId, status });
+    await handleUpdate(res, "บันทึกสถานะงานแล้ว");
+  }
+
+  async function addBehavior() {
+    const res = await runApi({
+      action: "addBehavior",
+      token: state.token,
+      student_id: $("behaviorStudent").value,
+      category: $("behaviorCategory").value,
+      tone: $("behaviorTone").value,
+      note: $("behaviorNote").value,
+      follow_up: $("behaviorFollow").checked,
+    });
+    await handleUpdate(res, "บันทึกพฤติกรรมแล้ว");
+  }
+
+  async function addScore() {
+    const res = await runApi({
+      action: "addScore",
+      token: state.token,
+      student_id: $("scoreStudent").value,
+      area: $("scoreArea").value,
+      score: $("scoreValue").value,
+      note: $("scoreNote").value,
+    });
+    await handleUpdate(res, "บันทึกคะแนนแล้ว");
+  }
+
+  async function addFollowUp() {
+    const res = await runApi({
+      action: "addFollowUp",
+      token: state.token,
+      student_id: $("followStudent").value,
+      topic: $("followTopic").value,
+      method: $("followMethod").value,
+      next_date: $("followNextDate").value,
+      note: $("followNote").value,
+    });
+    await handleUpdate(res, "บันทึกการติดตามแล้ว");
+  }
+
+  async function closeFollowUp(id) {
+    const res = await runApi({ action: "updateFollowUpStatus", token: state.token, followup_id: id, status: "done" });
+    await handleUpdate(res, "ปิดรายการติดตามแล้ว");
+  }
+
+  function startFollowUpFromAlert(studentId, reason) {
+    switchTab("followup");
+    const studentSelect = $("followStudent");
+    if (studentSelect) studentSelect.value = studentId;
+    if ($("followTopic")) $("followTopic").value = reason || "ติดตามนักเรียน";
+    if ($("followNote")) {
+      $("followNote").value = `จากระบบแจ้งเตือน: ${reason || "ควรติดตาม"}`;
+      $("followNote").focus();
+    }
+    toast("เตรียมฟอร์มติดตามแล้ว");
+  }
+
+  async function uploadStudentPhoto(studentId, file) {
+    if (!file) return;
+    if (!file.type || !file.type.startsWith("image/")) {
+      toast("เลือกไฟล์รูปภาพเท่านั้น");
+      return;
+    }
+    try {
+      toast("กำลังอัปโหลดรูป...");
+      const dataUri = await imageFileToDataUri(file);
+      const res = await runApi({ action: "uploadStudentPhoto", token: state.token, student_id: studentId, data_uri: dataUri });
+      if (!res || !res.ok) return toast(res && res.error ? res.error : "อัปโหลดรูปไม่สำเร็จ");
+      if (res.student && state.data && state.data.students) {
+        state.data.students = state.data.students.map((student) => student.student_id === studentId ? { ...student, ...res.student } : student);
+      }
+      toast("อัปโหลดรูปแล้ว");
+      if (res.profile) renderStudentProfile(res.profile);
+      else openProfile(studentId);
+    } catch (error) {
+      toast(error && error.message ? error.message : "อัปโหลดรูปไม่สำเร็จ");
+    }
+  }
+
+  async function exportStudentPdf(studentId) {
+    try {
+      toast("กำลังสร้าง PDF รายบุคคล...");
+      const res = await runApi({ action: "exportStudentReport", token: state.token, student_id: studentId });
+      if (!res || !res.ok) return toast(res && res.error ? res.error : "สร้าง PDF ไม่สำเร็จ");
+      toast("สร้าง PDF แล้ว");
+      window.open(res.url, "_blank");
+    } catch (error) {
+      toast(error && error.message ? error.message : "สร้าง PDF ไม่สำเร็จ");
+    }
+  }
+
+  async function runBackup() {
+    try {
+      toast("กำลังสำรองข้อมูล...");
+      const res = await runApi({ action: "runBackup", token: state.token });
+      if (!res || !res.ok) return toast(res && res.error ? res.error : "สำรองข้อมูลไม่สำเร็จ");
+      state.data = res.bootstrap || state.data;
+      render();
+      toast("สำรองข้อมูลแล้ว");
+      window.open(res.url, "_blank");
+    } catch (error) {
+      toast(error && error.message ? error.message : "สำรองข้อมูลไม่สำเร็จ");
+    }
+  }
+
+  async function installWeeklyBackup() {
+    try {
+      toast("กำลังตั้ง Backup รายสัปดาห์...");
+      const res = await runApi({ action: "installWeeklyBackup", token: state.token });
+      if (!res || !res.ok) return toast(res && res.error ? res.error : "ตั้ง Backup ไม่สำเร็จ");
+      state.data = res.bootstrap || state.data;
+      render();
+      toast("เปิด Backup ทุกวันศุกร์ 16:00 แล้ว");
+    } catch (error) {
+      toast(error && error.message ? error.message : "ตั้ง Backup ไม่สำเร็จ");
+    }
+  }
+
+  function imageFileToDataUri(file) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onerror = () => reject(new Error("อ่านไฟล์รูปไม่ได้"));
+      reader.onload = () => {
+        const img = new Image();
+        img.onerror = () => reject(new Error("เปิดรูปไม่ได้ หากใช้ iPhone/HEIC ให้ถ่ายหรือแปลงเป็น JPG แล้วลองใหม่"));
+        img.onload = () => {
+          const max = 480;
+          const ratio = Math.min(1, max / Math.max(img.width, img.height));
+          const canvas = document.createElement("canvas");
+          canvas.width = Math.max(1, Math.round(img.width * ratio));
+          canvas.height = Math.max(1, Math.round(img.height * ratio));
+          const ctx = canvas.getContext("2d");
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+          let dataUri = canvas.toDataURL("image/jpeg", 0.68);
+          if (dataUri.length > 700000) dataUri = canvas.toDataURL("image/jpeg", 0.52);
+          if (dataUri.length > 700000) {
+            reject(new Error("รูปยังใหญ่เกินไป กรุณาครอปหรือเลือกรูปที่เล็กลง"));
+            return;
+          }
+          resolve(dataUri);
+        };
+        img.src = reader.result;
+      };
+      reader.readAsDataURL(file);
+    });
+  }
+
+  function buildClassReportText() {
+    const d = state.data.dashboard;
+    const attendance = d.attendance;
+    const watch = d.watchList.length
+      ? d.watchList.map((p, i) => `${i + 1}. ${p.student.full_name} - ${p.analysis.reasons[0] || "ควรติดตาม"}`).join("\n")
+      : "ไม่มีนักเรียนที่เข้าเกณฑ์ติดตามเร่งด่วน";
+    const alerts = d.alerts && d.alerts.length
+      ? d.alerts.map((item, i) => `${i + 1}. ${item.full_name} - ${item.reason} | แนวทาง: ${item.action}`).join("\n")
+      : "ไม่มีรายการแจ้งเตือนวันนี้";
+    return [
+      `รายงานประจำวัน ห้อง SMT ป.4/2`,
+      `วันที่ ${new Date(state.data.today).toLocaleDateString("th-TH", { day: "numeric", month: "long", year: "numeric" })}`,
+      ``,
+      `จำนวนนักเรียนทั้งหมด ${d.studentCount} คน`,
+      `การมาเรียน: มา ${attendance.present} คน, สาย ${attendance.late} คน, ขาด ${attendance.absent} คน, ลา ${attendance.leave} คน, ยังไม่เช็คชื่อ ${attendance.unchecked} คน`,
+      `งานค้างรวม ${d.missingHomework} รายการ จากงานที่เปิดติดตาม ${d.activeHomework} งาน`,
+      `รายการติดตามที่ยังเปิดอยู่ ${d.openFollowUps} รายการ`,
+      `บันทึกพฤติกรรม 30 วันล่าสุด ${d.behavior30} รายการ`,
+      `ครูประจำชั้น: ${teacherNames().join(", ")}`,
+      `ผู้บันทึก: ${currentRecorderName()}`,
+      ``,
+      `แจ้งเตือนติดตามวันนี้:`,
+      alerts,
+      ``,
+      `นักเรียนที่ควรติดตาม:`,
+      watch,
+      ``,
+      `พัฒนาระบบโดย นายพิชญานนท์ วัจนสุนทร ครูชำนาญการ โรงเรียนอนุบาลหนองหานวิทยายน`,
+    ].join("\n");
+  }
+
+  function copyReport() {
+    const el = $("classReportText");
+    el.focus();
+    el.select();
+    if (navigator.clipboard && window.isSecureContext) {
+      navigator.clipboard.writeText(el.value).then(() => toast("คัดลอกรายงานแล้ว")).catch(() => fallbackCopyReport(el));
+      return;
+    }
+    fallbackCopyReport(el);
+  }
+
+  function fallbackCopyReport(el) {
+    document.execCommand("copy");
+    toast("คัดลอกรายงานแล้ว");
+  }
+
+  function studentCard(student) {
+    return `
+      <button class="student-card" onclick="openProfile('${student.student_id}')">
+        <div class="student-head">
+          <span class="avatar">${escapeHtml((student.full_name || "?").replace(/^เด็ก(ชาย|หญิง)/, "").trim().charAt(0) || "?")}</span>
+          <div><strong>${escapeHtml(student.full_name)}</strong><small>เลขที่ ${student.seq} · ${student.student_code || "-"} · ${student.phone || "ไม่มีเบอร์"}</small></div>
+          <span>›</span>
+        </div>
+      </button>
+    `;
+  }
+
+  async function openProfile(studentId) {
+    switchTab("students");
+    const res = await runApi({ action: "studentProfile", token: state.token, student_id: studentId });
+    if (!res || !res.ok) return toast(res && res.error ? res.error : "เปิดข้อมูลไม่ได้");
+    renderStudentProfile(res.profile);
+  }
+
+  function renderStudentProfile(p) {
+    const s = p.student;
+    const a = p.analysis;
+    const box = $("studentProfile");
+    box.classList.remove("hidden");
+    box.scrollIntoView({ behavior: "smooth", block: "start" });
+    box.innerHTML = `
+      <article class="profile-card">
+        ${profilePhotoBlock(p, s)}
+        <h2>${escapeHtml(s.full_name)}</h2>
+        <p class="muted">เลขที่ ${s.seq} · รหัส ${s.student_code || "-"}</p>
+        <label class="small-btn photo-upload-btn">
+          อัปโหลดรูป
+          <input type="file" accept="image/*" onchange="uploadStudentPhoto('${s.student_id}', this.files && this.files[0])">
+        </label>
+        <button class="small-btn" onclick="exportStudentPdf('${jsAttr(s.student_id)}')">Export PDF รายบุคคล</button>
+        ${s.photo_updated_at ? `<p class="panel-note">อัปเดตรูปโดย ${escapeHtml(s.photo_by || "-")} · ${escapeHtml(s.photo_updated_at)}</p>` : ""}
+        <div class="profile-stats">
+          <div><strong class="risk ${a.level}">${a.riskScore}</strong><span>Risk</span></div>
+          <div><strong>${a.avgScore === null ? "-" : a.avgScore}</strong><span>คะแนน</span></div>
+          <div><strong>${a.behavior30}</strong><span>พฤติกรรม</span></div>
+        </div>
+      </article>
+      <div class="profile-grid" style="margin-top:12px">
+        ${detailRow("ชื่อเล่น/ชื่อแสดงผล", s.display_name)}
+        ${detailRow("เพศ", s.sex)}
+        ${detailRow("วันเกิด", s.birthdate_th)}
+        ${sensitiveIdRow("เลขประชาชนนักเรียน", s.citizen_id, `citizen-${s.student_id}`)}
+        ${detailRow("ผู้ปกครอง", s.guardian_name)}
+        ${detailRow("ความสัมพันธ์", s.guardian_relationship)}
+        ${detailRow("โทร", phoneLinks(s), true)}
+        ${detailRow("บิดา", s.father_name)}
+        ${detailRow("มารดา", s.mother_name)}
+        ${detailRow("สถานะครอบครัว", s.parent_status)}
+        ${detailRow("วันที่เข้าเรียน", s.enrolled_date)}
+        ${detailRow("ห้องเดิม/หมายเหตุ", s.previous_class_note || s.note)}
+        ${detailRow("ที่อยู่ปัจจุบัน", s.current_address)}
+        ${detailRow("ที่อยู่ทะเบียนบ้าน", s.registered_address)}
+        <div class="row"><span>ขาด/สาย/ลา 30 วัน</span><strong>${a.absent}/${a.late}/${a.leave}</strong></div>
+        <div class="row"><span>งานค้าง</span><strong>${a.missingHomework}</strong></div>
+        <div class="row"><span>ติดตามเปิดอยู่</span><strong>${a.openFollowUps}</strong></div>
+      </div>
+      <h3 style="margin-top:14px">เหตุผล</h3>
+      <div class="chip-row">${a.reasons.map((x) => `<span class="chip warn">${escapeHtml(x)}</span>`).join("")}</div>
+      <h3 style="margin-top:14px">แนวทางติดตาม</h3>
+      <div class="chip-row">${a.suggestions.map((x) => `<span class="chip ok">${escapeHtml(x)}</span>`).join("")}</div>
+      <h3 style="margin-top:14px">ประวัติติดตามล่าสุด</h3>
+      <div class="list">
+        ${p.recentFollowUps.length ? p.recentFollowUps.map((r) => followUpRow(r, false)).join("") : `<p class="panel-note">ยังไม่มีประวัติติดตามรายบุคคล</p>`}
+      </div>
+    `;
+    refreshIcons();
+  }
+
+  async function handleUpdate(res, message) {
+    if (!res || !res.ok) return toast(res && res.error ? res.error : "บันทึกไม่สำเร็จ");
+    state.data = res.bootstrap;
+    render();
+    toast(message);
+  }
+
+  function studentOptions() {
+    return state.data.students.map((s) => `<option value="${s.student_id}">${s.seq}. ${escapeHtml(s.full_name)}</option>`).join("");
+  }
+
+  function profilePhotoBlock(profile, student) {
+    if (profile.photoDataUri) {
+      return `<img class="profile-photo" src="${profile.photoDataUri}" alt="รูปนักเรียน ${escapeHtml(student.full_name || "")}">`;
+    }
+    return `<div class="profile-avatar">${escapeHtml((student.full_name || "?").replace(/^เด็ก(ชาย|หญิง)/, "").trim().charAt(0) || "?")}</div>`;
+  }
+
+  function renderTeacherTeam() {
+    const teachers = teacherNames();
+    const recorder = currentRecorderName();
+    $("teacherTeamLabel").textContent = `ผู้บันทึก: ${recorder}`;
+    const sidebar = $("sidebarTeachers");
+    if (sidebar) sidebar.innerHTML = teachers.map((name) => `<span>${escapeHtml(name)}</span>`).join("");
+  }
+
+  function teacherNames() {
+    return (state.data.teachers || []).map((teacher) => String(teacher.name || "").trim()).filter(Boolean);
+  }
+
+  function currentRecorderName() {
+    return (state.currentUser && state.currentUser.teacher_name) || (state.data.currentUser && state.data.currentUser.teacher_name) || teacherNames()[0] || "-";
+  }
+
+  function detailRow(label, value, isHtml) {
+    const text = value || "-";
+    return `<div class="row"><span>${escapeHtml(label)}</span><strong>${isHtml ? text : escapeHtml(text)}</strong></div>`;
+  }
+
+  function sensitiveIdRow(label, value, id) {
+    const raw = String(value || "").trim();
+    if (!raw) return detailRow(label, "-");
+    const safeId = escapeHtml(id);
+    return `
+      <div class="row sensitive-row">
+        <span>${escapeHtml(label)}</span>
+        <strong>
+          <span id="${safeId}" data-hidden="1" data-full="${escapeHtml(raw)}">${escapeHtml(maskCitizenId(raw))}</span>
+          <button type="button" class="inline-link" onclick="toggleSensitiveId('${jsAttr(id)}')">แสดง</button>
+        </strong>
+      </div>
+    `;
+  }
+
+  function maskCitizenId(value) {
+    const text = String(value || "");
+    if (text.length <= 4) return "••••";
+    return "•".repeat(Math.max(0, text.length - 4)) + text.slice(-4);
+  }
+
+  function toggleSensitiveId(id) {
+    const el = $(id);
+    if (!el) return;
+    const button = el.parentElement.querySelector("button");
+    const isHidden = el.dataset.hidden !== "0";
+    el.textContent = isHidden ? el.dataset.full : maskCitizenId(el.dataset.full);
+    el.dataset.hidden = isHidden ? "0" : "1";
+    if (button) button.textContent = isHidden ? "ซ่อน" : "แสดง";
+  }
+
+  function phoneLinks(student) {
+    const phones = [student.phone, student.phone_2, student.phone_3].filter((phone) => String(phone || "").trim());
+    if (!phones.length) return "-";
+    return phones.map((phone) => {
+      const value = escapeHtml(phone);
+      return `<a href="tel:${value}">${value}</a>`;
+    }).join(" · ");
+  }
+
+  function timeText(value) {
+    if (!value) return "";
+    return new Date(value).toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit" });
+  }
+
+  function toast(text) {
+    const el = $("toast");
+    el.textContent = text;
+    el.classList.remove("hidden");
+    clearTimeout(window.__toastTimer);
+    window.__toastTimer = setTimeout(() => el.classList.add("hidden"), 2200);
+  }
+
+  function refreshIcons() {
+    if (window.lucide) window.lucide.createIcons();
+  }
+
+  function applyLogos() {
+    const logos = window.TC_LOGOS || {};
+    document.querySelectorAll("[data-logo]").forEach((img) => {
+      const value = logos[img.dataset.logo];
+      if (value) img.src = value;
+    });
+  }
+
+  function escapeHtml(value) {
+    return String(value ?? "")
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;")
+      .replaceAll('"', "&quot;")
+      .replaceAll("'", "&#039;");
+  }
+
+  function jsString(value) {
+    return String(value ?? "")
+      .replaceAll("\\", "\\\\")
+      .replaceAll("'", "\\'")
+      .replaceAll("\n", " ");
+  }
+
+  function jsAttr(value) {
+    return escapeHtml(jsString(value));
+  }
+</script>

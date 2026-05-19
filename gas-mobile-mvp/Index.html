@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="th">
+  <head>
+    <base target="_top">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <title>Teacher Cockpit SMT ป.4/2</title>
+    <script src="https://cdn.jsdelivr.net/npm/lucide@0.468.0/dist/umd/lucide.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;600;700&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <?!= include('LogoAssets'); ?>
+    <?!= include('Style'); ?>
+  </head>
+  <body>
+    <section id="loginView" class="login-shell">
+      <div class="login-card fade-in">
+        <div class="logo-lockup">
+          <div class="logo-pair" aria-label="โลโก้โรงเรียนและโลโก้ SMT ป.4/2">
+            <img class="logo-img" data-logo="anbnhs" alt="โลโก้โรงเรียนอนุบาลหนองหานวิทยายน">
+            <img class="logo-img smt-logo" data-logo="smt42" alt="โลโก้ SMT ป.4/2">
+          </div>
+          <div class="logo-text">
+            <strong>Teacher Cockpit</strong>
+            <span>ระบบประจำชั้นอัจฉริยะ</span>
+          </div>
+        </div>
+        <h1>Teacher Cockpit</h1>
+        <p>SMT ป.4/2 · โรงเรียนอนุบาลหนองหานวิทยายน</p>
+        <div class="developer-credit">
+          <span>พัฒนาระบบโดย</span>
+          <strong>นายพิชญานนท์ วัจนสุนทร</strong>
+          <small>ครูชำนาญการ · โรงเรียนอนุบาลหนองหานวิทยายน</small>
+        </div>
+        <form id="loginForm" class="form-grid">
+          <input id="loginUsername" name="username" type="text" autocomplete="username" value="teacher" class="sr-only" tabindex="-1" aria-hidden="true">
+          <label class="field">
+            ผู้บันทึก
+            <select id="teacherSelect">
+              <option value="1">นางฐิติยาภรณ์ วิเศษโวหาร</option>
+              <option value="2">นายพิชญานนท์ วัจนสุนทร</option>
+              <option value="3">นายพงศกร วิบุญกุล</option>
+            </select>
+          </label>
+          <label class="field">
+            PIN ครู
+            <input id="pinInput" type="password" inputmode="numeric" autocomplete="current-password" placeholder="กรอก PIN">
+          </label>
+          <button id="loginBtn" class="primary-btn" type="submit">เข้าสู่ระบบ</button>
+        </form>
+        <p id="loginError" class="error-text"></p>
+      </div>
+    </section>
+
+    <main id="mainView" class="app hidden">
+      <aside class="sidebar">
+        <div class="brand-row">
+          <img class="sidebar-logo" data-logo="smt42" alt="โลโก้ SMT ป.4/2">
+          <div>
+            <span>Teacher</span>
+            <strong>SMT ป.4/2</strong>
+            <small>โรงเรียนอนุบาลหนองหานวิทยายน</small>
+          </div>
+        </div>
+        <nav class="side-nav">
+          <button data-tab="dashboard" class="active"><i data-lucide="layout-dashboard"></i>แดชบอร์ด</button>
+          <button data-tab="students"><i data-lucide="users"></i>โปรไฟล์นักเรียน</button>
+          <button data-tab="attendance"><i data-lucide="clipboard-check"></i>เช็คชื่อ</button>
+          <button data-tab="homework"><i data-lucide="book-check"></i>งานค้าง</button>
+          <button data-tab="behavior"><i data-lucide="heart-handshake"></i>พฤติกรรม/คะแนน</button>
+          <button data-tab="followup"><i data-lucide="phone-call"></i>ติดตาม</button>
+          <button data-tab="weekly"><i data-lucide="calendar-days"></i>สรุปรายสัปดาห์</button>
+          <button data-tab="report"><i data-lucide="file-text"></i>รายงาน</button>
+        </nav>
+        <div class="sidebar-foot">
+          <strong>ครูประจำชั้น</strong>
+          <div id="sidebarTeachers" class="teacher-list">
+            <span>นางฐิติยาภรณ์ วิเศษโวหาร</span>
+            <span>นายพิชญานนท์ วัจนสุนทร</span>
+            <span>นายพงศกร วิบุญกุล</span>
+          </div>
+          <small>พัฒนาระบบโดย นายพิชญานนท์ วัจนสุนทร</small>
+        </div>
+      </aside>
+
+      <section class="workspace">
+        <header class="topbar">
+          <div class="top-left">
+            <button id="mobileMenuBtn" class="mobile-menu-btn"><i data-lucide="menu"></i></button>
+            <img class="topbar-logo" data-logo="smt42" alt="โลโก้ SMT ป.4/2">
+            <div>
+              <h1 id="pageTitle">แดชบอร์ดหลัก</h1>
+              <p id="pageSubtitle">Teacher Cockpit SMT ป.4/2 · <span id="lastUpdated">พร้อมใช้งาน</span></p>
+            </div>
+          </div>
+          <div class="top-actions">
+            <button id="refreshBtn" class="icon-btn" title="รีเฟรช"><i data-lucide="refresh-cw"></i></button>
+            <button id="switchTeacherBtn" class="small-btn">เปลี่ยนผู้บันทึก</button>
+            <div class="teacher-pill"><span>3</span><strong id="teacherTeamLabel">ครูประจำชั้น 3 คน</strong></div>
+          </div>
+        </header>
+
+        <div id="mobileMenu" class="mobile-drawer hidden">
+          <div class="drawer-backdrop"></div>
+          <nav class="drawer-panel">
+            <div class="drawer-head">
+              <strong>เมนู</strong>
+              <button id="mobileCloseBtn"><i data-lucide="x"></i></button>
+            </div>
+            <button data-tab="dashboard"><i data-lucide="layout-dashboard"></i>แดชบอร์ด</button>
+            <button data-tab="students"><i data-lucide="users"></i>โปรไฟล์นักเรียน</button>
+            <button data-tab="attendance"><i data-lucide="clipboard-check"></i>เช็คชื่อ</button>
+            <button data-tab="homework"><i data-lucide="book-check"></i>งานค้าง</button>
+            <button data-tab="behavior"><i data-lucide="heart-handshake"></i>พฤติกรรม/คะแนน</button>
+            <button data-tab="followup"><i data-lucide="phone-call"></i>ติดตาม</button>
+            <button data-tab="weekly"><i data-lucide="calendar-days"></i>สรุปรายสัปดาห์</button>
+            <button data-tab="report"><i data-lucide="file-text"></i>รายงาน</button>
+          </nav>
+        </div>
+
+        <section class="content">
+          <section id="dashboardTab" class="tab-panel"></section>
+          <section id="studentsTab" class="tab-panel hidden"></section>
+          <section id="attendanceTab" class="tab-panel hidden"></section>
+          <section id="homeworkTab" class="tab-panel hidden"></section>
+          <section id="behaviorTab" class="tab-panel hidden"></section>
+          <section id="followupTab" class="tab-panel hidden"></section>
+          <section id="weeklyTab" class="tab-panel hidden"></section>
+          <section id="reportTab" class="tab-panel hidden"></section>
+        </section>
+      </section>
+    </main>
+
+    <div id="toast" class="toast hidden"></div>
+    <?!= include('Script'); ?>
+  </body>
+</html>

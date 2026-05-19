@@ -1,0 +1,13 @@
+node_modules/
+dist/
+.vite/
+*.local
+tmp/
+vite-dev*.log
+vite-current*.log
+.agents/
+.playwright-cli/
+output/
+test-results/
+*.err.log
+*.log
