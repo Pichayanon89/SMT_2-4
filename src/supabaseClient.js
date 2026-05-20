@@ -29,5 +29,3 @@ export function getSupabaseClient(url = defaultSupabaseUrl, key = defaultSupabas
   }
   return clientCache.get(cacheKey);
 }
-
-export const supabase = getSupabaseClient();
