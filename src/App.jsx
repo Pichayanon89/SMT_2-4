@@ -22,6 +22,8 @@ const CLASS_ID = "c-p4-2";
 const CLASS_LABEL = "SMT ป.4/2";
 const SCHOOL_NAME = "โรงเรียนอนุบาลหนองหานวิทยายน";
 const TODAY = () => new Date().toISOString().slice(0, 10);
+const ASSET_BASE = import.meta.env.BASE_URL || "/";
+const brandAsset = (fileName) => `${ASSET_BASE}brand/${fileName}`;
 const TEACHERS = [
   "นางฐิติยาภรณ์ วิเศษโวหาร",
   "นายพิชญานนท์ วัจนสุนทร",
@@ -393,8 +395,8 @@ function App() {
       <div className="login-page">
         <div className="login-card">
           <div className="logo-pair">
-            <img src="/brand/anbnhs.jpg" alt="โรงเรียน" />
-            <img src="/brand/smt4-2.png" alt="SMT 4/2" />
+            <img src={brandAsset("anbnhs.jpg")} alt="โรงเรียน" />
+            <img src={brandAsset("smt4-2.png")} alt="SMT 4/2" />
           </div>
           <h1>Teacher Cockpit</h1>
           <p>{CLASS_LABEL} · {SCHOOL_NAME}</p>
@@ -413,7 +415,7 @@ function App() {
     <div className="app-shell">
       <aside>
         <div className="brand">
-          <img src="/brand/smt4-2.png" alt="SMT" />
+          <img src={brandAsset("smt4-2.png")} alt="SMT" />
           <div><strong>{CLASS_LABEL}</strong><span>{SCHOOL_NAME}</span></div>
         </div>
         <nav>
