@@ -537,6 +537,10 @@ function Attendance({ students, data, setAttendance, markAllPresent }) {
 }
 
 function Students({ students, query, setQuery, selectedStudent, setSelectedId, photoUrl, uploadPhoto, profile, addFollowUp }) {
+  const [showCitizenIds, setShowCitizenIds] = useState(false);
+  const phoneText = selectedStudent ? [selectedStudent.phone, selectedStudent.phone_2, selectedStudent.phone_3].filter(Boolean).join(" / ") : "";
+  const citizenValue = (value) => formatCitizenId(value, showCitizenIds);
+
   return (
     <section className="student-layout">
       <Panel title="รายชื่อนักเรียน">
@@ -552,21 +556,74 @@ function Students({ students, query, setQuery, selectedStudent, setSelectedId, p
       <Panel title="โปรไฟล์รายบุคคล">
         {selectedStudent ? (
           <div className="profile">
-            {photoUrl ? <img className="profile-photo" src={photoUrl} alt={selectedStudent.full_name} /> : <div className="profile-avatar">{selectedStudent.display_name?.[0] || "น"}</div>}
-            <h2>{selectedStudent.full_name}</h2>
-            <p>เลขที่ {selectedStudent.seq} · {selectedStudent.student_code || "-"}</p>
-            <label className="upload-btn"><Camera size={16} /> อัปโหลดรูป<input type="file" accept="image/*" onChange={(e) => uploadPhoto(selectedStudent, e.target.files?.[0])} /></label>
-            <div className="profile-grid">
+            <div className="profile-head">
+              {photoUrl ? <img className="profile-photo" src={photoUrl} alt={selectedStudent.full_name} /> : <div className="profile-avatar">{selectedStudent.display_name?.[0] || "น"}</div>}
+              <div>
+                <h2>{selectedStudent.full_name}</h2>
+                <p>เลขที่ {selectedStudent.seq} · เลขประจำตัว {selectedStudent.student_code || "-"}</p>
+                <div className="profile-actions">
+                  <label className="upload-btn"><Camera size={16} /> อัปโหลดรูป<input type="file" accept="image/*" onChange={(e) => uploadPhoto(selectedStudent, e.target.files?.[0])} /></label>
+                  <button className="secondary" onClick={() => setShowCitizenIds((value) => !value)} type="button">
+                    <ShieldCheck size={16} /> {showCitizenIds ? "ซ่อนเลขบัตร" : "แสดงเลขบัตร"}
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <ProfileSection title="ข้อมูลนักเรียน">
+              <Info label="เลขที่" value={selectedStudent.seq} />
+              <Info label="เลขประจำตัว" value={selectedStudent.student_code} />
+              <Info label="ชื่อ-สกุล" value={selectedStudent.full_name} />
+              <Info label="ชื่อแสดง" value={selectedStudent.display_name} />
+              <Info label="เพศ" value={selectedStudent.sex} />
+              <Info label="วันเกิด" value={selectedStudent.birthdate_th} />
+              <Info label="เลขบัตรประชาชนนักเรียน" value={citizenValue(selectedStudent.citizen_id)} sensitive />
+              <Info label="สถานะในระบบ" value={selectedStudent.active === false ? "ปิดใช้งาน" : "กำลังเรียน"} />
+              <Info label="วันที่เข้าเรียน" value={selectedStudent.enrolled_date} />
+              <Info label="ห้องเดิม/ที่มา" value={selectedStudent.previous_class_note} />
+            </ProfileSection>
+
+            <ProfileSection title="ครอบครัวและผู้ปกครอง">
+              <Info label="บิดา" value={selectedStudent.father_name} />
+              <Info label="เลขบัตรบิดา" value={citizenValue(selectedStudent.father_citizen_id)} sensitive />
+              <Info label="มารดา" value={selectedStudent.mother_name} />
+              <Info label="เลขบัตรมารดา" value={citizenValue(selectedStudent.mother_citizen_id)} sensitive />
               <Info label="ผู้ปกครอง" value={selectedStudent.guardian_name} />
+              <Info label="เลขบัตรผู้ปกครอง" value={citizenValue(selectedStudent.guardian_citizen_id)} sensitive />
               <Info label="ความสัมพันธ์" value={selectedStudent.guardian_relationship} />
-              <Info label="โทร" value={[selectedStudent.phone, selectedStudent.phone_2, selectedStudent.phone_3].filter(Boolean).join(" / ")} />
               <Info label="สถานะครอบครัว" value={selectedStudent.parent_status} />
-              <Info label="ที่อยู่" value={selectedStudent.current_address || selectedStudent.registered_address} />
+            </ProfileSection>
+
+            <ProfileSection title="การติดต่อและที่อยู่">
+              <Info label="โทรศัพท์ทั้งหมด" value={phoneText} wide />
+              <Info label="เบอร์หลัก" value={selectedStudent.phone} />
+              <Info label="เบอร์สำรอง 1" value={selectedStudent.phone_2} />
+              <Info label="เบอร์สำรอง 2" value={selectedStudent.phone_3} />
+              <Info label="ที่อยู่ทะเบียนบ้าน" value={selectedStudent.registered_address} wide />
+              <Info label="ที่อยู่ปัจจุบัน" value={selectedStudent.current_address} wide />
+            </ProfileSection>
+
+            <ProfileSection title="วิเคราะห์และติดตาม">
               <Info label="ขาด/สาย/ลา 30 วัน" value={`${profile.absent}/${profile.late}/${profile.leave}`} />
               <Info label="งานค้าง" value={profile.missingHomework} />
               <Info label="ติดตามเปิดอยู่" value={profile.openFollowUps} />
+              <Info label="ระดับความเสี่ยง" value={`${profile.risk}/100`} />
+              <Info label="ต้องติดตามพิเศษ" value={selectedStudent.needs_review} wide />
+              <Info label="หมายเหตุ" value={selectedStudent.note} wide />
+            </ProfileSection>
+
+            <ProfileSection title="ข้อมูลรูปและระบบ">
+              <Info label="ไฟล์รูป Supabase" value={selectedStudent.photo_path} wide />
+              <Info label="ไฟล์รูปเดิม Google Drive" value={selectedStudent.photo_file_id} wide />
+              <Info label="อัปรูปล่าสุด" value={dateText(selectedStudent.photo_updated_at)} />
+              <Info label="อัปโหลดโดย" value={selectedStudent.photo_by} />
+              <Info label="สร้างข้อมูล" value={dateText(selectedStudent.created_at)} />
+              <Info label="แก้ไขล่าสุด" value={dateText(selectedStudent.updated_at)} />
+            </ProfileSection>
+
+            <div className="chip-row">
+              {profile.reasons.map((reason) => <span className="chip warn" key={reason}>{reason}</span>)}
             </div>
-            <div className="chip-row">{profile.reasons.map((reason) => <span className="chip warn" key={reason}>{reason}</span>)}</div>
             <button className="secondary" onClick={() => addFollowUp(selectedStudent.student_id, profile.reasons[0] || "ติดตามรายบุคคล")}><Plus size={16} /> เพิ่มรายการติดตาม</button>
           </div>
         ) : <Empty text="เลือกนักเรียน" />}
@@ -656,8 +713,31 @@ function Panel({ title, children }) {
   return <section className="panel"><h2>{title}</h2>{children}</section>;
 }
 
-function Info({ label, value }) {
-  return <div className="info"><span>{label}</span><strong>{value || "-"}</strong></div>;
+function ProfileSection({ title, children }) {
+  return (
+    <section className="profile-section">
+      <h3>{title}</h3>
+      <div className="profile-grid">{children}</div>
+    </section>
+  );
+}
+
+function Info({ label, value, wide, sensitive }) {
+  return <div className={cx("info", wide && "wide", sensitive && "sensitive")}><span>{label}</span><strong>{displayValue(value)}</strong></div>;
+}
+
+function displayValue(value) {
+  if (value === 0) return "0";
+  if (typeof value === "boolean") return value ? "ใช่" : "ไม่ใช่";
+  return value || "-";
+}
+
+function formatCitizenId(value, show) {
+  const digits = String(value || "").replace(/\D/g, "");
+  if (!digits) return "";
+  if (!show) return `ปิดบังอยู่ •••••••••${digits.slice(-4)}`;
+  if (digits.length !== 13) return value;
+  return `${digits[0]}-${digits.slice(1, 5)}-${digits.slice(5, 10)}-${digits.slice(10, 12)}-${digits[12]}`;
 }
 
 function Empty({ text }) {
