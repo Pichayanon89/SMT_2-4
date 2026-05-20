@@ -20,8 +20,8 @@ npm install
 2. สร้างไฟล์ `.env.local`
 
 ```env
-VITE_SUPABASE_URL=https://your-project.supabase.co
-VITE_SUPABASE_PUBLISHABLE_KEY=your-publishable-key
+VITE_SUPABASE_URL=https://dqudvtapdypzngmwaega.supabase.co
+VITE_SUPABASE_PUBLISHABLE_KEY=sb_publishable_PzeH2jrH8EQI-HmIpOhQ1g_eFySvIhH
 ```
 
 3. รันฐานข้อมูลใน Supabase SQL Editor
@@ -51,12 +51,10 @@ Environment variables:
 
 ## การใช้งานวันแรก
 
-1. สร้างผู้ใช้ครู 3 คนใน Supabase Auth
-2. ใส่ UID ครูใน `supabase/teacher_setup_template.sql` แล้วรัน
-3. Login ด้วยบัญชีครู
-4. ไปหน้า `ตั้งค่า`
-5. กด `นำเข้ารายชื่อ 35 คน`
-6. ทดสอบเช็คชื่อและอัปโหลดรูปนักเรียน
+1. Login ด้วยบัญชีครูที่สร้างไว้ใน Supabase Auth
+2. ตรวจรายชื่อในหน้า `นักเรียน`
+3. ทดสอบเช็คชื่อและอัปโหลดรูปนักเรียน
+4. ถ้ารายชื่อหาย ให้ไปหน้า `ตั้งค่า` แล้วกด `นำเข้ารายชื่อ 35 คน`
 
 ปุ่ม `นำเข้ารายชื่อ 35 คน` ใช้ข้อมูลจาก `src/data/students_p4_2_35.json` ซึ่งสร้างจากชุดข้อมูลจริงเดียวกับระบบ GAS
 
@@ -73,8 +71,8 @@ git push -u origin main
 
 ถ้าใช้ GitHub Pages ให้เข้า Settings > Pages แล้วเลือก GitHub Actions จากนั้นตั้ง Repository Variables:
 
-- `VITE_SUPABASE_URL`
-- `VITE_SUPABASE_PUBLISHABLE_KEY`
+- `VITE_SUPABASE_URL` = `https://dqudvtapdypzngmwaega.supabase.co`
+- `VITE_SUPABASE_PUBLISHABLE_KEY` = `sb_publishable_PzeH2jrH8EQI-HmIpOhQ1g_eFySvIhH`
 
 ถ้าใช้ Vercel ให้ Import repository แล้วตั้ง Environment Variables ชื่อเดียวกัน
 

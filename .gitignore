@@ -4,6 +4,7 @@ dist/
 *.local
 tmp/
 tools/
+supabase/.temp/
 vite-dev*.log
 vite-current*.log
 .agents/
