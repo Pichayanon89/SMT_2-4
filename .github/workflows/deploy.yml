@@ -26,8 +26,8 @@ jobs:
       - run: npm ci
       - run: npm run build
         env:
-          VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
-          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ vars.VITE_SUPABASE_PUBLISHABLE_KEY }}
+          VITE_SUPABASE_URL: https://dqudvtapdypzngmwaega.supabase.co
+          VITE_SUPABASE_PUBLISHABLE_KEY: sb_publishable_PzeH2jrH8EQI-HmIpOhQ1g_eFySvIhH
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
