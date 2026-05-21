@@ -563,6 +563,7 @@ function Attendance({ students, data, setAttendance, markAllPresent }) {
 
 function Students({ students, query, setQuery, selectedStudent, setSelectedId, photoUrl, uploadPhoto, updateStudentDetails, profile, addFollowUp }) {
   const [showCitizenIds, setShowCitizenIds] = useState(false);
+  const [isEditingProfile, setIsEditingProfile] = useState(false);
   const [draft, setDraft] = useState({ nickname: "", health_note: "", phone: "", phone_2: "", phone_3: "" });
   const phoneText = selectedStudent ? [selectedStudent.phone, selectedStudent.phone_2, selectedStudent.phone_3].filter(Boolean).join(" / ") : "";
   const citizenValue = (value) => formatCitizenId(value, showCitizenIds);
@@ -576,11 +577,24 @@ function Students({ students, query, setQuery, selectedStudent, setSelectedId, p
       phone_2: selectedStudent?.phone_2 || "",
       phone_3: selectedStudent?.phone_3 || "",
     });
+    setIsEditingProfile(false);
   }, [selectedStudent?.student_id]);
 
-  function saveDraft(event) {
+  async function saveDraft(event) {
     event.preventDefault();
-    updateStudentDetails(selectedStudent.student_id, draft);
+    await updateStudentDetails(selectedStudent.student_id, draft);
+    setIsEditingProfile(false);
+  }
+
+  function resetDraft() {
+    setDraft({
+      nickname: selectedStudent?.nickname || "",
+      health_note: selectedStudent?.health_note || "",
+      phone: selectedStudent?.phone || "",
+      phone_2: selectedStudent?.phone_2 || "",
+      phone_3: selectedStudent?.phone_3 || "",
+    });
+    setIsEditingProfile(false);
   }
 
   return (
@@ -615,17 +629,25 @@ function Students({ students, query, setQuery, selectedStudent, setSelectedId, p
             </div>
 
             <form className="profile-edit" onSubmit={saveDraft}>
-              <label>ชื่อเล่น<input value={draft.nickname} onChange={(e) => setDraft({ ...draft, nickname: e.target.value })} placeholder="เช่น ต้น / แก้ม / ภูมิ" /></label>
-              <label className="wide">ประวัติส่วนตัว/โรคประจำตัว<textarea value={draft.health_note} onChange={(e) => setDraft({ ...draft, health_note: e.target.value })} placeholder="โรคประจำตัว แพ้ยา อาหารที่แพ้ หรือข้อมูลสำคัญที่ครูควรรู้" /></label>
-              <label>เบอร์ผู้ปกครองหลัก<input inputMode="tel" value={draft.phone} onChange={(e) => setDraft({ ...draft, phone: e.target.value })} placeholder="เบอร์หลัก" /></label>
-              <label>เบอร์สำรอง 1<input inputMode="tel" value={draft.phone_2} onChange={(e) => setDraft({ ...draft, phone_2: e.target.value })} placeholder="เบอร์สำรอง" /></label>
-              <label>เบอร์สำรอง 2<input inputMode="tel" value={draft.phone_3} onChange={(e) => setDraft({ ...draft, phone_3: e.target.value })} placeholder="เบอร์สำรอง" /></label>
+              <div className="profile-edit-head wide">
+                <strong>แก้ไขข้อมูลติดต่อ/สุขภาพ</strong>
+                {!isEditingProfile ? (
+                  <button className="secondary" type="button" onClick={() => setIsEditingProfile(true)}>แก้ไขข้อมูล</button>
+                ) : (
+                  <button className="ghost" type="button" onClick={resetDraft}>ยกเลิก</button>
+                )}
+              </div>
+              <label>ชื่อเล่น<input disabled={!isEditingProfile} value={draft.nickname} onChange={(e) => setDraft({ ...draft, nickname: e.target.value })} placeholder="เช่น ต้น / แก้ม / ภูมิ" /></label>
+              <label className="wide">ประวัติส่วนตัว/โรคประจำตัว<textarea disabled={!isEditingProfile} value={draft.health_note} onChange={(e) => setDraft({ ...draft, health_note: e.target.value })} placeholder="โรคประจำตัว แพ้ยา อาหารที่แพ้ หรือข้อมูลสำคัญที่ครูควรรู้" /></label>
+              <label>เบอร์ผู้ปกครองหลัก<input disabled={!isEditingProfile} inputMode="tel" value={draft.phone} onChange={(e) => setDraft({ ...draft, phone: e.target.value })} placeholder="เบอร์หลัก" /></label>
+              <label>เบอร์สำรอง 1<input disabled={!isEditingProfile} inputMode="tel" value={draft.phone_2} onChange={(e) => setDraft({ ...draft, phone_2: e.target.value })} placeholder="เบอร์สำรอง" /></label>
+              <label>เบอร์สำรอง 2<input disabled={!isEditingProfile} inputMode="tel" value={draft.phone_3} onChange={(e) => setDraft({ ...draft, phone_3: e.target.value })} placeholder="เบอร์สำรอง" /></label>
               <div className="quick-call-row wide">
                 {[draft.phone, draft.phone_2, draft.phone_3].filter((value) => normalizePhone(value)).map((value, index) => (
                   <a key={`${value}-${index}`} className="secondary call-btn" href={`tel:${normalizePhone(value)}`}>โทรเบอร์ {index + 1}</a>
                 ))}
               </div>
-              <button className="primary wide" type="submit">บันทึกชื่อเล่น/สุขภาพ/เบอร์โทร</button>
+              {isEditingProfile && <button className="primary wide" type="submit">บันทึกชื่อเล่น/สุขภาพ/เบอร์โทร</button>}
             </form>
 
             <ProfileSection title="ข้อมูลนักเรียน">
