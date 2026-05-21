@@ -113,6 +113,7 @@ header p { margin: 2px 0 0; color: #65738b; }
 .profile h2, .profile p { margin: 0; }
 .profile p { color: #65738b; }
 .profile-head { display: flex; align-items: center; gap: 16px; }
+.profile-head.compact { justify-content: space-between; align-items: flex-start; }
 .profile-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
 .nickname { color: #c79a20; font-size: 14px; font-weight: 700; margin-bottom: 2px; }
 .profile-photo, .profile-avatar { width: 120px; height: 120px; border-radius: 18px; object-fit: cover; }
@@ -220,7 +221,7 @@ header p { margin: 2px 0 0; color: #65738b; }
   .app-shell { display: block; }
   aside { position: sticky; top: 0; z-index: 5; padding: 10px; }
   .brand span, .side-foot { display: none; }
-  nav { grid-template-columns: repeat(5, 1fr); gap: 4px; }
+  nav { grid-template-columns: repeat(6, 1fr); gap: 4px; }
   nav button { justify-content: center; padding: 9px 4px; font-size: 12px; flex-direction: column; gap: 2px; }
   main { padding: 14px; }
   header { align-items: flex-start; }

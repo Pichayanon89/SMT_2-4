@@ -36,6 +36,7 @@ const navItems = [
   ["dashboard", BarChart3, "แดชบอร์ด"],
   ["attendance", ClipboardCheck, "เช็คชื่อ"],
   ["students", Users, "นักเรียน"],
+  ["reports", FileText, "รายงาน"],
   ["work", BookOpenCheck, "งาน/พฤติกรรม"],
   ["setup", Database, "ตั้งค่า"],
 ];
@@ -523,9 +524,19 @@ function App() {
             updateStudentDetails={updateStudentDetails}
             addParentContact={addParentContact}
             profile={studentProfile(selectedStudent, data)}
+            addFollowUp={addFollowUp}
+          />
+        )}
+        {tab === "reports" && (
+          <Reports
+            students={filteredStudents}
+            query={query}
+            setQuery={setQuery}
+            selectedStudent={selectedStudent}
+            setSelectedId={setSelectedId}
+            profile={studentProfile(selectedStudent, data)}
             data={data}
             teacherName={profile?.display_name || session.user.email}
-            addFollowUp={addFollowUp}
           />
         )}
         {tab === "work" && (
@@ -592,7 +603,7 @@ function Attendance({ students, data, setAttendance, markAllPresent }) {
             <article className="student-card" key={student.student_id}>
               <div className="student-line">
                 <span className="seq">{student.seq}</span>
-                <div><strong>{student.full_name}</strong><small>{row?.updated_by ? `เช็คแล้วโดย ${row.updated_by} · ${timeText(row.updated_at)}` : "ยังไม่มีผู้บันทึกวันนี้"}</small></div>
+                <div><strong>{student.full_name}</strong><small>{row?.updated_by ? `เช็คแล้วโดย ${displayRecorder(row.updated_by)} · ${timeText(row.updated_at)}` : "ยังไม่มีผู้บันทึกวันนี้"}</small></div>
               </div>
               <div className="status-grid">
                 {["present", "late", "absent", "leave"].map((status) => (
@@ -609,16 +620,14 @@ function Attendance({ students, data, setAttendance, markAllPresent }) {
   );
 }
 
-function Students({ students, query, setQuery, selectedStudent, setSelectedId, photoUrl, uploadPhoto, updateStudentDetails, addParentContact, profile, data, teacherName, addFollowUp }) {
+function Students({ students, query, setQuery, selectedStudent, setSelectedId, photoUrl, uploadPhoto, updateStudentDetails, addParentContact, profile, addFollowUp }) {
   const [showCitizenIds, setShowCitizenIds] = useState(false);
   const [isEditingProfile, setIsEditingProfile] = useState(false);
   const [draft, setDraft] = useState({ nickname: "", health_note: "", phone: "", phone_2: "", phone_3: "" });
   const [contactDraft, setContactDraft] = useState({ date: TODAY(), method: "phone", topic: "", result: "", next_date: "" });
-  const [reportDraft, setReportDraft] = useState({ summary: "", support: "", teacherNote: "" });
   const phoneText = selectedStudent ? [selectedStudent.phone, selectedStudent.phone_2, selectedStudent.phone_3].filter(Boolean).join(" / ") : "";
   const citizenValue = (value) => formatCitizenId(value, showCitizenIds);
   const primaryPhone = [draft.phone, draft.phone_2, draft.phone_3].find((value) => normalizePhone(value));
-  const timeline = useMemo(() => buildStudentTimeline(selectedStudent, data), [selectedStudent?.student_id, data]);
 
   useEffect(() => {
     setDraft({
@@ -631,10 +640,6 @@ function Students({ students, query, setQuery, selectedStudent, setSelectedId, p
     setIsEditingProfile(false);
     setContactDraft({ date: TODAY(), method: "phone", topic: "", result: "", next_date: "" });
   }, [selectedStudent?.student_id]);
-
-  useEffect(() => {
-    setReportDraft(buildReportDraft(selectedStudent, profile, data));
-  }, [selectedStudent?.student_id, profile.risk, profile.missingHomework, profile.openFollowUps, data]);
 
   async function saveDraft(event) {
     event.preventDefault();
@@ -729,35 +734,6 @@ function Students({ students, query, setQuery, selectedStudent, setSelectedId, p
               </form>
             </ProfileSection>
 
-            <ProfileSection title="Timeline รายบุคคล">
-              <div className="timeline wide">
-                {timeline.length ? timeline.slice(0, 12).map((item) => (
-                  <article className={cx("timeline-item", item.tone)} key={`${item.type}-${item.id}`}>
-                    <span>{dateText(item.date)}</span>
-                    <strong>{item.title}</strong>
-                    <p>{item.detail || "-"}</p>
-                    {item.by && <small>บันทึกโดย {item.by}</small>}
-                  </article>
-                )) : <Empty text="ยังไม่มี Timeline รายบุคคล" />}
-              </div>
-            </ProfileSection>
-
-            <ProfileSection title="รายงานสำหรับผู้ปกครอง">
-              <div className="report-editor wide">
-                <label>สรุปผลอัตโนมัติ<textarea value={reportDraft.summary} onChange={(e) => setReportDraft({ ...reportDraft, summary: e.target.value })} /></label>
-                <label>แนวทางส่งเสริม/ช่วยเหลือ<textarea value={reportDraft.support} onChange={(e) => setReportDraft({ ...reportDraft, support: e.target.value })} /></label>
-                <label>ข้อความจากครู<textarea value={reportDraft.teacherNote} onChange={(e) => setReportDraft({ ...reportDraft, teacherNote: e.target.value })} /></label>
-                <button className="primary" type="button" onClick={() => window.print()}><Printer size={16} /> พิมพ์/บันทึกเป็น PDF</button>
-              </div>
-              <StudentReport
-                student={selectedStudent}
-                profile={profile}
-                report={reportDraft}
-                teacherName={teacherName}
-                timeline={timeline}
-              />
-            </ProfileSection>
-
             <ProfileSection title="ข้อมูลนักเรียน">
               <Info label="เลขที่" value={selectedStudent.seq} />
               <Info label="เลขประจำตัว" value={selectedStudent.student_code} />
@@ -817,6 +793,72 @@ function Students({ students, query, setQuery, selectedStudent, setSelectedId, p
             <button className="secondary" onClick={() => addFollowUp(selectedStudent.student_id, profile.reasons[0] || "ติดตามรายบุคคล")}><Plus size={16} /> เพิ่มรายการติดตาม</button>
           </div>
         ) : <Empty text="เลือกนักเรียน" />}
+      </Panel>
+    </section>
+  );
+}
+
+function Reports({ students, query, setQuery, selectedStudent, setSelectedId, profile, data, teacherName }) {
+  const [reportDraft, setReportDraft] = useState({ summary: "", support: "", teacherNote: "" });
+  const timeline = useMemo(() => buildStudentTimeline(selectedStudent, data), [selectedStudent?.student_id, data]);
+
+  useEffect(() => {
+    setReportDraft(buildReportDraft(selectedStudent, profile, data));
+  }, [selectedStudent?.student_id, profile.risk, profile.missingHomework, profile.openFollowUps, data]);
+
+  return (
+    <section className="student-layout report-page">
+      <Panel title="เลือกนักเรียน">
+        <div className="search"><Search size={16} /><input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="ค้นหาเลขที่/ชื่อ" /></div>
+        <div className="compact-list">
+          {students.map((student) => (
+            <button key={student.student_id} className={cx("row-btn", selectedStudent?.student_id === student.student_id && "active")} onClick={() => setSelectedId(student.student_id)}>
+              <span className="seq">{student.seq}</span><div><strong>{student.full_name}</strong><small>{student.student_code || "-"}</small></div>
+            </button>
+          ))}
+        </div>
+      </Panel>
+      <Panel title="Timeline และรายงาน">
+        {selectedStudent ? (
+          <div className="profile">
+            <div className="profile-head compact">
+              <div>
+                <div className="nickname">{selectedStudent.nickname || "ยังไม่ระบุชื่อเล่น"}</div>
+                <h2>{selectedStudent.full_name}</h2>
+                <p>เลขที่ {selectedStudent.seq} · เลขประจำตัว {selectedStudent.student_code || "-"}</p>
+              </div>
+              <button className="primary" type="button" onClick={() => window.print()}><Printer size={16} /> พิมพ์/บันทึกเป็น PDF</button>
+            </div>
+
+            <ProfileSection title="Timeline รายบุคคล">
+              <div className="timeline wide">
+                {timeline.length ? timeline.slice(0, 20).map((item) => (
+                  <article className={cx("timeline-item", item.tone)} key={`${item.type}-${item.id}`}>
+                    <span>{dateText(item.date)}</span>
+                    <strong>{item.title}</strong>
+                    <p>{item.detail || "-"}</p>
+                    {item.by && <small>บันทึกโดย {item.by}</small>}
+                  </article>
+                )) : <Empty text="ยังไม่มี Timeline รายบุคคล" />}
+              </div>
+            </ProfileSection>
+
+            <ProfileSection title="รายงานสำหรับผู้ปกครอง">
+              <div className="report-editor wide">
+                <label>สรุปผลอัตโนมัติ<textarea value={reportDraft.summary} onChange={(e) => setReportDraft({ ...reportDraft, summary: e.target.value })} /></label>
+                <label>แนวทางส่งเสริม/ช่วยเหลือ<textarea value={reportDraft.support} onChange={(e) => setReportDraft({ ...reportDraft, support: e.target.value })} /></label>
+                <label>ข้อความจากครู<textarea value={reportDraft.teacherNote} onChange={(e) => setReportDraft({ ...reportDraft, teacherNote: e.target.value })} /></label>
+              </div>
+              <StudentReport
+                student={selectedStudent}
+                profile={profile}
+                report={reportDraft}
+                teacherName={teacherName}
+                timeline={timeline}
+              />
+            </ProfileSection>
+          </div>
+        ) : <Empty text="เลือกนักเรียนเพื่อดู Timeline และรายงาน" />}
       </Panel>
     </section>
   );
@@ -996,6 +1038,13 @@ function normalizePhone(value) {
   return String(value || "").replace(/[^\d+]/g, "");
 }
 
+function displayRecorder(value) {
+  const text = String(value || "").trim();
+  if (!text) return "";
+  if (/^\?+$/.test(text.replace(/\s/g, "")) || text.includes("????")) return "ไม่ระบุผู้บันทึก";
+  return text;
+}
+
 async function readRosterCsvText(file) {
   const buffer = await file.arrayBuffer();
   const utf8 = new TextDecoder("utf-8").decode(buffer);
@@ -1143,7 +1192,7 @@ function buildStudentTimeline(student, data) {
       date: row.date,
       title: `เช็คชื่อ: ${statusText(row.status)}`,
       detail: row.note || "",
-      by: row.updated_by,
+      by: displayRecorder(row.updated_by),
       tone: row.status === "present" ? "ok" : row.status === "late" ? "warn" : "danger",
     }));
   const behavior = data.behavior
@@ -1154,7 +1203,7 @@ function buildStudentTimeline(student, data) {
       date: row.date,
       title: `พฤติกรรม: ${row.category}`,
       detail: row.note || `คะแนน ${row.points}`,
-      by: row.created_by,
+      by: displayRecorder(row.created_by),
       tone: Number(row.points) < 0 ? "danger" : Number(row.points) > 0 ? "ok" : "neutral",
     }));
   const followUps = data.followUps
@@ -1165,7 +1214,7 @@ function buildStudentTimeline(student, data) {
       date: row.date,
       title: `ติดตาม: ${row.topic}`,
       detail: `${row.status || "open"}${row.next_date ? ` · นัด ${dateText(row.next_date)}` : ""}`,
-      by: row.created_by,
+      by: displayRecorder(row.created_by),
       tone: row.status === "done" ? "ok" : "warn",
     }));
   const contacts = data.parentContacts
@@ -1176,7 +1225,7 @@ function buildStudentTimeline(student, data) {
       date: row.date,
       title: `ติดต่อผู้ปกครอง: ${contactMethodText(row.method)} - ${row.topic}`,
       detail: `${row.result || ""}${row.next_date ? ` · ติดตามอีกครั้ง ${dateText(row.next_date)}` : ""}`,
-      by: row.created_by,
+      by: displayRecorder(row.created_by),
       tone: "neutral",
     }));
   return [...attendance, ...behavior, ...followUps, ...contacts]
