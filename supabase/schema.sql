@@ -142,6 +142,19 @@ create table if not exists public.follow_ups (
   closed_by text
 );
 
+create table if not exists public.parent_contacts (
+  contact_id text primary key,
+  classroom_id text not null references public.classrooms(classroom_id) on delete restrict default 'c-p4-2',
+  date date not null,
+  student_id text not null references public.students(student_id) on delete cascade,
+  method text not null check (method in ('phone', 'line', 'meeting', 'home_visit', 'other')),
+  topic text not null,
+  result text,
+  next_date date,
+  created_at timestamptz not null default now(),
+  created_by text
+);
+
 create table if not exists public.scores (
   id uuid primary key default gen_random_uuid(),
   classroom_id text not null references public.classrooms(classroom_id) on delete restrict default 'c-p4-2',
@@ -194,6 +207,8 @@ create index if not exists behavior_student_date_idx on public.behavior(student_
 create index if not exists behavior_tone_date_idx on public.behavior(classroom_id, tone, date desc);
 create index if not exists follow_ups_status_next_idx on public.follow_ups(classroom_id, status, next_date);
 create index if not exists follow_ups_student_id_idx on public.follow_ups(student_id);
+create index if not exists parent_contacts_student_date_idx on public.parent_contacts(student_id, date desc);
+create index if not exists parent_contacts_classroom_date_idx on public.parent_contacts(classroom_id, date desc);
 create index if not exists scores_student_date_idx on public.scores(student_id, date desc);
 create index if not exists scores_classroom_id_idx on public.scores(classroom_id);
 create index if not exists audit_logs_at_idx on public.audit_logs(at desc);
@@ -273,12 +288,13 @@ alter table public.homework enable row level security;
 alter table public.homework_status enable row level security;
 alter table public.behavior enable row level security;
 alter table public.follow_ups enable row level security;
+alter table public.parent_contacts enable row level security;
 alter table public.scores enable row level security;
 alter table public.audit_logs enable row level security;
 alter table public.sync_runs enable row level security;
 
 grant usage on schema public to authenticated;
-grant select, insert, update, delete on public.profiles, public.classrooms, public.classroom_teachers, public.students, public.student_access_maps, public.attendance, public.homework, public.homework_status, public.behavior, public.follow_ups, public.scores, public.audit_logs, public.sync_runs to authenticated;
+grant select, insert, update, delete on public.profiles, public.classrooms, public.classroom_teachers, public.students, public.student_access_maps, public.attendance, public.homework, public.homework_status, public.behavior, public.follow_ups, public.parent_contacts, public.scores, public.audit_logs, public.sync_runs to authenticated;
 grant usage, select on all sequences in schema public to authenticated;
 
 -- Remove older broad policies before installing action-specific policies.
@@ -293,6 +309,7 @@ drop policy if exists homework_staff_write on public.homework;
 drop policy if exists homework_status_staff_write on public.homework_status;
 drop policy if exists behavior_staff_write on public.behavior;
 drop policy if exists follow_ups_staff_write on public.follow_ups;
+drop policy if exists parent_contacts_staff_write on public.parent_contacts;
 drop policy if exists scores_staff_write on public.scores;
 drop policy if exists sync_runs_staff_all on public.sync_runs;
 
@@ -527,6 +544,27 @@ with check (app_private.can_access_classroom(classroom_id));
 
 drop policy if exists follow_ups_staff_delete on public.follow_ups;
 create policy follow_ups_staff_delete on public.follow_ups
+for delete to authenticated
+using (app_private.can_access_classroom(classroom_id));
+
+drop policy if exists parent_contacts_select on public.parent_contacts;
+create policy parent_contacts_select on public.parent_contacts
+for select to authenticated
+using (app_private.can_read_student(student_id));
+
+drop policy if exists parent_contacts_staff_insert on public.parent_contacts;
+create policy parent_contacts_staff_insert on public.parent_contacts
+for insert to authenticated
+with check (app_private.can_access_classroom(classroom_id));
+
+drop policy if exists parent_contacts_staff_update on public.parent_contacts;
+create policy parent_contacts_staff_update on public.parent_contacts
+for update to authenticated
+using (app_private.can_access_classroom(classroom_id))
+with check (app_private.can_access_classroom(classroom_id));
+
+drop policy if exists parent_contacts_staff_delete on public.parent_contacts;
+create policy parent_contacts_staff_delete on public.parent_contacts
 for delete to authenticated
 using (app_private.can_access_classroom(classroom_id));
 

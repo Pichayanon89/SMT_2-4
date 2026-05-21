@@ -7,8 +7,11 @@ import {
   ClipboardCheck,
   Clock3,
   Database,
+  FileText,
   LogOut,
+  PhoneCall,
   Plus,
+  Printer,
   RefreshCw,
   Search,
   ShieldCheck,
@@ -170,6 +173,7 @@ function App() {
         homeworkStatusRes,
         behaviorRes,
         followRes,
+        contactRes,
         scoreRes,
       ] = await Promise.all([
         supabase.from("profiles").select("id,display_name,role").eq("id", userId).single(),
@@ -180,9 +184,10 @@ function App() {
         supabase.from("homework_status").select("*"),
         supabase.from("behavior").select("*").eq("classroom_id", CLASS_ID).gte("date", addDays(TODAY(), -45)).order("date", { ascending: false }),
         supabase.from("follow_ups").select("*").eq("classroom_id", CLASS_ID).order("date", { ascending: false }),
+        supabase.from("parent_contacts").select("*").eq("classroom_id", CLASS_ID).order("date", { ascending: false }),
         supabase.from("scores").select("*").eq("classroom_id", CLASS_ID).order("date", { ascending: false }),
       ]);
-      [profileRes, teacherRes, studentsRes, attendanceRes, homeworkRes, homeworkStatusRes, behaviorRes, followRes, scoreRes].forEach((res) => {
+      [profileRes, teacherRes, studentsRes, attendanceRes, homeworkRes, homeworkStatusRes, behaviorRes, followRes, contactRes, scoreRes].forEach((res) => {
         if (res.error) throw res.error;
       });
       setProfile(profileRes.data);
@@ -194,6 +199,7 @@ function App() {
         homeworkStatus: homeworkStatusRes.data || [],
         behavior: behaviorRes.data || [],
         followUps: followRes.data || [],
+        parentContacts: contactRes.data || [],
         scores: scoreRes.data || [],
       });
       if (!selectedId && studentsRes.data?.[0]) setSelectedId(studentsRes.data[0].student_id);
@@ -321,6 +327,25 @@ function App() {
       created_by: profile?.display_name || "",
     });
     if (error) return setMessage(error.message);
+    await loadAll();
+  }
+
+  async function addParentContact(studentId, contact) {
+    const topic = contact.topic?.trim();
+    if (!studentId || !topic) return;
+    const { error } = await supabase.from("parent_contacts").insert({
+      contact_id: crypto.randomUUID(),
+      classroom_id: CLASS_ID,
+      date: contact.date || TODAY(),
+      student_id: studentId,
+      method: contact.method || "phone",
+      topic,
+      result: contact.result?.trim() || "",
+      next_date: contact.next_date || null,
+      created_by: profile?.display_name || "",
+    });
+    if (error) return setMessage(error.message);
+    setMessage("บันทึกการติดต่อผู้ปกครองแล้ว");
     await loadAll();
   }
 
@@ -476,7 +501,10 @@ function App() {
             photoUrl={photoUrl}
             uploadPhoto={uploadPhoto}
             updateStudentDetails={updateStudentDetails}
+            addParentContact={addParentContact}
             profile={studentProfile(selectedStudent, data)}
+            data={data}
+            teacherName={profile?.display_name || session.user.email}
             addFollowUp={addFollowUp}
           />
         )}
@@ -561,13 +589,16 @@ function Attendance({ students, data, setAttendance, markAllPresent }) {
   );
 }
 
-function Students({ students, query, setQuery, selectedStudent, setSelectedId, photoUrl, uploadPhoto, updateStudentDetails, profile, addFollowUp }) {
+function Students({ students, query, setQuery, selectedStudent, setSelectedId, photoUrl, uploadPhoto, updateStudentDetails, addParentContact, profile, data, teacherName, addFollowUp }) {
   const [showCitizenIds, setShowCitizenIds] = useState(false);
   const [isEditingProfile, setIsEditingProfile] = useState(false);
   const [draft, setDraft] = useState({ nickname: "", health_note: "", phone: "", phone_2: "", phone_3: "" });
+  const [contactDraft, setContactDraft] = useState({ date: TODAY(), method: "phone", topic: "", result: "", next_date: "" });
+  const [reportDraft, setReportDraft] = useState({ summary: "", support: "", teacherNote: "" });
   const phoneText = selectedStudent ? [selectedStudent.phone, selectedStudent.phone_2, selectedStudent.phone_3].filter(Boolean).join(" / ") : "";
   const citizenValue = (value) => formatCitizenId(value, showCitizenIds);
   const primaryPhone = [draft.phone, draft.phone_2, draft.phone_3].find((value) => normalizePhone(value));
+  const timeline = useMemo(() => buildStudentTimeline(selectedStudent, data), [selectedStudent?.student_id, data]);
 
   useEffect(() => {
     setDraft({
@@ -578,7 +609,12 @@ function Students({ students, query, setQuery, selectedStudent, setSelectedId, p
       phone_3: selectedStudent?.phone_3 || "",
     });
     setIsEditingProfile(false);
+    setContactDraft({ date: TODAY(), method: "phone", topic: "", result: "", next_date: "" });
   }, [selectedStudent?.student_id]);
+
+  useEffect(() => {
+    setReportDraft(buildReportDraft(selectedStudent, profile, data));
+  }, [selectedStudent?.student_id, profile.risk, profile.missingHomework, profile.openFollowUps, data]);
 
   async function saveDraft(event) {
     event.preventDefault();
@@ -595,6 +631,12 @@ function Students({ students, query, setQuery, selectedStudent, setSelectedId, p
       phone_3: selectedStudent?.phone_3 || "",
     });
     setIsEditingProfile(false);
+  }
+
+  async function saveContact(event) {
+    event.preventDefault();
+    await addParentContact(selectedStudent.student_id, contactDraft);
+    setContactDraft({ date: TODAY(), method: "phone", topic: "", result: "", next_date: "" });
   }
 
   return (
@@ -649,6 +691,52 @@ function Students({ students, query, setQuery, selectedStudent, setSelectedId, p
               </div>
               {isEditingProfile && <button className="primary wide" type="submit">บันทึกชื่อเล่น/สุขภาพ/เบอร์โทร</button>}
             </form>
+
+            <ProfileSection title="บันทึกติดต่อผู้ปกครอง">
+              <form className="contact-form wide" onSubmit={saveContact}>
+                <input type="date" value={contactDraft.date} onChange={(e) => setContactDraft({ ...contactDraft, date: e.target.value })} />
+                <select value={contactDraft.method} onChange={(e) => setContactDraft({ ...contactDraft, method: e.target.value })}>
+                  <option value="phone">โทรศัพท์</option>
+                  <option value="line">LINE</option>
+                  <option value="meeting">พบที่โรงเรียน</option>
+                  <option value="home_visit">เยี่ยมบ้าน</option>
+                  <option value="other">อื่น ๆ</option>
+                </select>
+                <input className="wide" value={contactDraft.topic} onChange={(e) => setContactDraft({ ...contactDraft, topic: e.target.value })} placeholder="หัวข้อที่ติดต่อ เช่น แจ้งงานค้าง / แจ้งขาดเรียน / ชื่นชมพฤติกรรม" />
+                <textarea className="wide" value={contactDraft.result} onChange={(e) => setContactDraft({ ...contactDraft, result: e.target.value })} placeholder="ผลการพูดคุยหรือข้อตกลง" />
+                <label>นัดติดตามครั้งหน้า<input type="date" value={contactDraft.next_date} onChange={(e) => setContactDraft({ ...contactDraft, next_date: e.target.value })} /></label>
+                <button className="primary" type="submit"><PhoneCall size={16} /> บันทึกการติดต่อ</button>
+              </form>
+            </ProfileSection>
+
+            <ProfileSection title="Timeline รายบุคคล">
+              <div className="timeline wide">
+                {timeline.length ? timeline.slice(0, 12).map((item) => (
+                  <article className={cx("timeline-item", item.tone)} key={`${item.type}-${item.id}`}>
+                    <span>{dateText(item.date)}</span>
+                    <strong>{item.title}</strong>
+                    <p>{item.detail || "-"}</p>
+                    {item.by && <small>บันทึกโดย {item.by}</small>}
+                  </article>
+                )) : <Empty text="ยังไม่มี Timeline รายบุคคล" />}
+              </div>
+            </ProfileSection>
+
+            <ProfileSection title="รายงานสำหรับผู้ปกครอง">
+              <div className="report-editor wide">
+                <label>สรุปผลอัตโนมัติ<textarea value={reportDraft.summary} onChange={(e) => setReportDraft({ ...reportDraft, summary: e.target.value })} /></label>
+                <label>แนวทางส่งเสริม/ช่วยเหลือ<textarea value={reportDraft.support} onChange={(e) => setReportDraft({ ...reportDraft, support: e.target.value })} /></label>
+                <label>ข้อความจากครู<textarea value={reportDraft.teacherNote} onChange={(e) => setReportDraft({ ...reportDraft, teacherNote: e.target.value })} /></label>
+                <button className="primary" type="button" onClick={() => window.print()}><Printer size={16} /> พิมพ์/บันทึกเป็น PDF</button>
+              </div>
+              <StudentReport
+                student={selectedStudent}
+                profile={profile}
+                report={reportDraft}
+                teacherName={teacherName}
+                timeline={timeline}
+              />
+            </ProfileSection>
 
             <ProfileSection title="ข้อมูลนักเรียน">
               <Info label="เลขที่" value={selectedStudent.seq} />
@@ -711,6 +799,56 @@ function Students({ students, query, setQuery, selectedStudent, setSelectedId, p
         ) : <Empty text="เลือกนักเรียน" />}
       </Panel>
     </section>
+  );
+}
+
+function StudentReport({ student, profile, report, teacherName, timeline }) {
+  const latestContact = timeline.find((item) => item.type === "contact");
+  return (
+    <article className="print-report wide">
+      <div className="report-head">
+        <img src={brandAsset("anbnhs.jpg")} alt="ตราโรงเรียน" />
+        <div>
+          <h2>รายงานข้อมูลนักเรียนรายบุคคล</h2>
+          <p>{SCHOOL_NAME} · {CLASS_LABEL}</p>
+        </div>
+      </div>
+      <div className="report-student">
+        <Info label="ชื่อเล่น" value={student.nickname} />
+        <Info label="ชื่อ-สกุล" value={student.full_name} />
+        <Info label="เลขที่/เลขประจำตัว" value={`${student.seq} / ${student.student_code || "-"}`} />
+        <Info label="ผู้ปกครอง/โทร" value={`${student.guardian_name || "-"} · ${[student.phone, student.phone_2, student.phone_3].filter(Boolean).join(" / ") || "-"}`} />
+      </div>
+      <div className="report-box">
+        <h3><FileText size={16} /> สรุปผลอัตโนมัติ</h3>
+        <p>{report.summary || "-"}</p>
+      </div>
+      <div className="report-box">
+        <h3>แนวทางส่งเสริม/ช่วยเหลือ</h3>
+        <p>{report.support || "-"}</p>
+      </div>
+      <div className="report-grid">
+        <Info label="ขาด/สาย/ลา 30 วัน" value={`${profile.absent}/${profile.late}/${profile.leave}`} />
+        <Info label="งานค้าง" value={profile.missingHomework} />
+        <Info label="รายการติดตามเปิดอยู่" value={profile.openFollowUps} />
+        <Info label="ติดต่อล่าสุด" value={latestContact ? `${dateText(latestContact.date)} · ${latestContact.title}` : "-"} />
+      </div>
+      <div className="report-box">
+        <h3>ข้อความจากครู</h3>
+        <p>{report.teacherNote || "-"}</p>
+      </div>
+      <div className="signature-row">
+        <div>
+          <span>ลงชื่อ</span>
+          <b>{teacherName}</b>
+          <small>ครูผู้ออกเอกสาร</small>
+        </div>
+        <div>
+          <span>วันที่ออกเอกสาร</span>
+          <b>{dateText(TODAY())}</b>
+        </div>
+      </div>
+    </article>
   );
 }
 
@@ -826,6 +964,85 @@ function normalizePhone(value) {
   return String(value || "").replace(/[^\d+]/g, "");
 }
 
+function contactMethodText(method) {
+  return {
+    phone: "โทรศัพท์",
+    line: "LINE",
+    meeting: "พบที่โรงเรียน",
+    home_visit: "เยี่ยมบ้าน",
+    other: "อื่น ๆ",
+  }[method] || "ติดต่อ";
+}
+
+function buildStudentTimeline(student, data) {
+  if (!student) return [];
+  const attendance = data.attendance
+    .filter((row) => row.student_id === student.student_id)
+    .map((row) => ({
+      id: row.id || `${row.date}-${row.status}`,
+      type: "attendance",
+      date: row.date,
+      title: `เช็คชื่อ: ${statusText(row.status)}`,
+      detail: row.note || "",
+      by: row.updated_by,
+      tone: row.status === "present" ? "ok" : row.status === "late" ? "warn" : "danger",
+    }));
+  const behavior = data.behavior
+    .filter((row) => row.student_id === student.student_id)
+    .map((row) => ({
+      id: row.id,
+      type: "behavior",
+      date: row.date,
+      title: `พฤติกรรม: ${row.category}`,
+      detail: row.note || `คะแนน ${row.points}`,
+      by: row.created_by,
+      tone: Number(row.points) < 0 ? "danger" : Number(row.points) > 0 ? "ok" : "neutral",
+    }));
+  const followUps = data.followUps
+    .filter((row) => row.student_id === student.student_id)
+    .map((row) => ({
+      id: row.followup_id,
+      type: "follow",
+      date: row.date,
+      title: `ติดตาม: ${row.topic}`,
+      detail: `${row.status || "open"}${row.next_date ? ` · นัด ${dateText(row.next_date)}` : ""}`,
+      by: row.created_by,
+      tone: row.status === "done" ? "ok" : "warn",
+    }));
+  const contacts = data.parentContacts
+    .filter((row) => row.student_id === student.student_id)
+    .map((row) => ({
+      id: row.contact_id,
+      type: "contact",
+      date: row.date,
+      title: `ติดต่อผู้ปกครอง: ${contactMethodText(row.method)} - ${row.topic}`,
+      detail: `${row.result || ""}${row.next_date ? ` · ติดตามอีกครั้ง ${dateText(row.next_date)}` : ""}`,
+      by: row.created_by,
+      tone: "neutral",
+    }));
+  return [...attendance, ...behavior, ...followUps, ...contacts]
+    .sort((a, b) => `${b.date}`.localeCompare(`${a.date}`));
+}
+
+function buildReportDraft(student, profile, data) {
+  if (!student) return { summary: "", support: "", teacherNote: "" };
+  const contacts = data.parentContacts.filter((row) => row.student_id === student.student_id);
+  const positives = data.behavior.filter((row) => row.student_id === student.student_id && Number(row.points) > 0).length;
+  const concerns = profile.reasons.filter((reason) => reason !== "ยังไม่มีสัญญาณเสี่ยงเด่น" && reason !== "ยังไม่มีข้อมูล");
+  return {
+    summary: [
+      `${student.full_name}${student.nickname ? ` (${student.nickname})` : ""} ห้อง ${CLASS_LABEL}`,
+      `สถิติ 30 วัน: ขาด ${profile.absent} วัน, สาย ${profile.late} ครั้ง, ลา ${profile.leave} วัน`,
+      `งานค้าง ${profile.missingHomework} งาน, รายการติดตามเปิดอยู่ ${profile.openFollowUps} รายการ, พฤติกรรมเชิงบวก ${positives} ครั้ง`,
+      contacts.length ? `มีการติดต่อผู้ปกครองแล้ว ${contacts.length} ครั้ง` : "ยังไม่มีประวัติติดต่อผู้ปกครองในระบบ",
+    ].join("\n"),
+    support: concerns.length
+      ? `ประเด็นที่ควรติดตาม: ${concerns.join(", ")}\nแนวทาง: ครูประจำชั้นควรติดตามต่อเนื่องร่วมกับผู้ปกครอง และบันทึกผลทุกครั้งหลังพูดคุย`
+      : "ไม่พบสัญญาณเสี่ยงเด่นในช่วงข้อมูลล่าสุด ควรส่งเสริมจุดแข็งและติดตามการมาเรียนอย่างสม่ำเสมอ",
+    teacherNote: student.health_note ? `ข้อมูลสุขภาพ/ข้อควรระวัง: ${student.health_note}` : "ครูสามารถแก้ข้อความส่วนนี้ก่อนพิมพ์รายงานได้",
+  };
+}
+
 function Empty({ text }) {
   return <div className="empty">{text}</div>;
 }
@@ -836,7 +1053,7 @@ function Bar({ label, value, total, tone }) {
 }
 
 function emptyData() {
-  return { teachers: TEACHERS, students: [], attendance: [], homework: [], homeworkStatus: [], behavior: [], followUps: [], scores: [] };
+  return { teachers: TEACHERS, students: [], attendance: [], homework: [], homeworkStatus: [], behavior: [], followUps: [], parentContacts: [], scores: [] };
 }
 
 function addDays(dateValue, days) {
