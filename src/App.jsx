@@ -226,6 +226,26 @@ function App() {
     }
   }
 
+  async function importRosterCsvFile(file) {
+    if (!file) return;
+    if (!window.confirm("อัปเดตรายชื่อนักเรียนจากไฟล์ CSV นี้ใช่ไหม? ข้อมูลเช็คชื่อ/พฤติกรรมเดิมจะไม่ถูกลบ")) return;
+    setLoading(true);
+    try {
+      const text = await readRosterCsvText(file);
+      const rows = parseCsvText(text);
+      const nextStudents = rosterRowsToStudents(rows, students);
+      if (!nextStudents.length) throw new Error("ไม่พบรายชื่อนักเรียนในไฟล์ CSV");
+      const { error } = await supabase.from("students").upsert(nextStudents, { onConflict: "student_id" });
+      if (error) throw error;
+      await loadAll();
+      setMessage(`อัปเดตรายชื่อจาก CSV แล้ว ${nextStudents.length} คน`);
+    } catch (error) {
+      setMessage(error.message || "อัปเดตรายชื่อจาก CSV ไม่สำเร็จ");
+    } finally {
+      setLoading(false);
+    }
+  }
+
   async function setAttendance(student, status) {
     const existing = data.attendance.find((row) => row.date === TODAY() && row.student_id === student.student_id);
     const recorder = profile?.display_name || session?.user?.email || "";
@@ -520,7 +540,7 @@ function App() {
             closeFollowUp={closeFollowUp}
           />
         )}
-        {tab === "setup" && <SetupPanel students={students} teachers={data.teachers} seedStudents={seedStudents} profile={profile} />}
+        {tab === "setup" && <SetupPanel students={students} teachers={data.teachers} seedStudents={seedStudents} importRosterCsvFile={importRosterCsvFile} profile={profile} />}
       </main>
     </div>
   );
@@ -903,7 +923,7 @@ function HomeworkRow({ hw, data, setHomeworkDone }) {
   );
 }
 
-function SetupPanel({ students, teachers, seedStudents, profile }) {
+function SetupPanel({ students, teachers, seedStudents, importRosterCsvFile, profile }) {
   return (
     <section className="grid-2">
       <Panel title="สถานะระบบ">
@@ -912,6 +932,18 @@ function SetupPanel({ students, teachers, seedStudents, profile }) {
         <Info label="ครูประจำชั้น" value={teachers.join(" / ")} />
         <Info label="บัญชี" value={`${profile?.display_name || "-"} (${profile?.role || "-"})`} />
         <button className="primary" onClick={seedStudents}>นำเข้ารายชื่อ 35 คน</button>
+      </Panel>
+      <Panel title="อัปเดตรายชื่อจาก CSV">
+        <p className="panel-note">รองรับไฟล์รายชื่อนักเรียนจาก Excel/CSV ภาษาไทย และจะไม่ลบประวัติเช็คชื่อ พฤติกรรม รูป หรือ Timeline เดิม</p>
+        <label className="upload-btn csv-upload">
+          อัปโหลดไฟล์ CSV รายชื่อ
+          <input type="file" accept=".csv,text/csv" onChange={(e) => importRosterCsvFile(e.target.files?.[0])} />
+        </label>
+        <ol className="steps">
+          <li>ใช้ไฟล์หัวคอลัมน์แบบ `ที่, เลขประจำตัว, ชื่อ - สกุล, ...`</li>
+          <li>ถ้าเลขบัตรใน CSV เป็น `1.42E+12` ระบบจะเก็บเลขเดิมที่ถูกต้องไว้</li>
+          <li>หลังอัปโหลด ให้ตรวจรายชื่อที่หน้า `นักเรียน`</li>
+        </ol>
       </Panel>
       <Panel title="ขั้นตอนขึ้น GitHub">
         <ol className="steps">
@@ -962,6 +994,133 @@ function formatCitizenId(value, show) {
 
 function normalizePhone(value) {
   return String(value || "").replace(/[^\d+]/g, "");
+}
+
+async function readRosterCsvText(file) {
+  const buffer = await file.arrayBuffer();
+  const utf8 = new TextDecoder("utf-8").decode(buffer);
+  if (!utf8.includes("\uFFFD")) return utf8.replace(/^\uFEFF/, "");
+  return new TextDecoder("windows-874").decode(buffer).replace(/^\uFEFF/, "");
+}
+
+function parseCsvText(text) {
+  const rows = [];
+  let row = [];
+  let field = "";
+  let quoted = false;
+  for (let i = 0; i < text.length; i += 1) {
+    const ch = text[i];
+    const next = text[i + 1];
+    if (quoted) {
+      if (ch === "\"" && next === "\"") {
+        field += "\"";
+        i += 1;
+      } else if (ch === "\"") {
+        quoted = false;
+      } else {
+        field += ch;
+      }
+    } else if (ch === "\"") {
+      quoted = true;
+    } else if (ch === ",") {
+      row.push(field);
+      field = "";
+    } else if (ch === "\n") {
+      row.push(field.replace(/\r$/, ""));
+      rows.push(row);
+      row = [];
+      field = "";
+    } else {
+      field += ch;
+    }
+  }
+  if (field || row.length) {
+    row.push(field.replace(/\r$/, ""));
+    rows.push(row);
+  }
+  return rows;
+}
+
+function rosterRowsToStudents(rows, existingStudents) {
+  const existingByCode = new Map(existingStudents.filter((row) => row.student_code).map((row) => [row.student_code, row]));
+  const existingBySeq = new Map(existingStudents.map((row) => [String(row.seq), row]));
+  const existingByName = new Map(existingStudents.map((row) => [cleanText(row.full_name), row]));
+  return rows.slice(1)
+    .filter((row) => cleanText(row[0]) || cleanText(row[2]))
+    .map((row, index) => rosterRowToStudent(row, index + 1, existingByCode, existingBySeq, existingByName));
+}
+
+function rosterRowToStudent(row, fallbackSeq, existingByCode, existingBySeq, existingByName) {
+  const seq = Number(cleanText(row[0]) || fallbackSeq);
+  const studentCode = cleanText(row[1]);
+  const fullName = squashText(row[2]);
+  const current = existingByCode.get(studentCode) || existingBySeq.get(String(seq)) || existingByName.get(cleanText(fullName)) || {};
+  const studentId = current.student_id || (studentCode ? `stu-${CLASS_ID}-${studentCode}` : `stu-${CLASS_ID}-seq-${seq}`);
+  return {
+    student_id: studentId,
+    classroom_id: CLASS_ID,
+    seq,
+    student_code: studentCode || "",
+    full_name: fullName,
+    display_name: displayStudentName(fullName),
+    sex: studentSex(fullName),
+    citizen_id: exactCitizenId(row[3], current.citizen_id),
+    birthdate_th: normalizeRosterDate(row[4]),
+    registered_address: squashText(row[5]),
+    current_address: squashText(row[6]),
+    father_name: squashText(row[7]),
+    father_citizen_id: exactCitizenId(row[8], current.father_citizen_id),
+    mother_name: squashText(row[9]),
+    mother_citizen_id: exactCitizenId(row[10], current.mother_citizen_id),
+    parent_status: squashText(row[11]),
+    guardian_name: squashText(row[12]),
+    guardian_citizen_id: exactCitizenId(row[13], current.guardian_citizen_id),
+    guardian_relationship: squashText(row[14]),
+    phone: normalizePhone(row[15]),
+    phone_2: normalizePhone(row[16]),
+    phone_3: normalizePhone(row[17]),
+    nickname: current.nickname || "",
+    health_note: current.health_note || "",
+    enrolled_date: normalizeRosterDate(row[18]),
+    previous_class_note: squashText(row[19]),
+    note: current.note || "",
+    needs_review: current.needs_review || "",
+    active: true,
+    photo_path: current.photo_path || null,
+    photo_file_id: current.photo_file_id || null,
+    photo_updated_at: current.photo_updated_at || null,
+    photo_by: current.photo_by || null,
+    updated_at: new Date().toISOString(),
+  };
+}
+
+function cleanText(value) {
+  return String(value ?? "").trim();
+}
+
+function squashText(value) {
+  return cleanText(value).replace(/\s+/g, " ");
+}
+
+function displayStudentName(fullName) {
+  return squashText(fullName).replace(/^เด็กชาย/, "").replace(/^เด็กหญิง/, "").trim();
+}
+
+function studentSex(fullName) {
+  if (fullName.startsWith("เด็กชาย")) return "ชาย";
+  if (fullName.startsWith("เด็กหญิง")) return "หญิง";
+  return "";
+}
+
+function exactCitizenId(value, fallback = "") {
+  const text = cleanText(value);
+  const digits = text.replace(/\D/g, "");
+  if (digits.length === 13 && !/[eE]/.test(text)) return digits;
+  return fallback || "";
+}
+
+function normalizeRosterDate(value) {
+  return squashText(value).replace(/\s+/g, "-");
 }
 
 function contactMethodText(method) {
