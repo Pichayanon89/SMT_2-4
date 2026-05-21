@@ -81,6 +81,8 @@ function normalizeRosterStudent(row) {
     phone: row.phone || "",
     phone_2: row.phone_2 || row.phone2 || "",
     phone_3: row.phone_3 || row.phone3 || "",
+    nickname: row.nickname || "",
+    health_note: row.health_note || "",
     enrolled_date: row.enrolled_date || row.enrolled_at_th || "",
     previous_class_note: row.previous_class_note || "",
     note: row.note || "",
@@ -377,6 +379,28 @@ function App() {
     }
   }
 
+  async function updateStudentDetails(studentId, changes) {
+    if (!studentId) return;
+    setLoading(true);
+    try {
+      const { error } = await supabase.from("students").update({
+        nickname: changes.nickname?.trim() || null,
+        health_note: changes.health_note?.trim() || null,
+        phone: changes.phone?.trim() || null,
+        phone_2: changes.phone_2?.trim() || null,
+        phone_3: changes.phone_3?.trim() || null,
+        updated_at: new Date().toISOString(),
+      }).eq("student_id", studentId);
+      if (error) throw error;
+      await loadAll();
+      setMessage("บันทึกข้อมูลโปรไฟล์แล้ว");
+    } catch (error) {
+      setMessage(error.message || "บันทึกข้อมูลโปรไฟล์ไม่สำเร็จ");
+    } finally {
+      setLoading(false);
+    }
+  }
+
   async function loadPhoto(path) {
     setPhotoUrl("");
     if (!path) return;
@@ -451,6 +475,7 @@ function App() {
             setSelectedId={setSelectedId}
             photoUrl={photoUrl}
             uploadPhoto={uploadPhoto}
+            updateStudentDetails={updateStudentDetails}
             profile={studentProfile(selectedStudent, data)}
             addFollowUp={addFollowUp}
           />
@@ -536,10 +561,27 @@ function Attendance({ students, data, setAttendance, markAllPresent }) {
   );
 }
 
-function Students({ students, query, setQuery, selectedStudent, setSelectedId, photoUrl, uploadPhoto, profile, addFollowUp }) {
+function Students({ students, query, setQuery, selectedStudent, setSelectedId, photoUrl, uploadPhoto, updateStudentDetails, profile, addFollowUp }) {
   const [showCitizenIds, setShowCitizenIds] = useState(false);
+  const [draft, setDraft] = useState({ nickname: "", health_note: "", phone: "", phone_2: "", phone_3: "" });
   const phoneText = selectedStudent ? [selectedStudent.phone, selectedStudent.phone_2, selectedStudent.phone_3].filter(Boolean).join(" / ") : "";
   const citizenValue = (value) => formatCitizenId(value, showCitizenIds);
+  const primaryPhone = [draft.phone, draft.phone_2, draft.phone_3].find((value) => normalizePhone(value));
+
+  useEffect(() => {
+    setDraft({
+      nickname: selectedStudent?.nickname || "",
+      health_note: selectedStudent?.health_note || "",
+      phone: selectedStudent?.phone || "",
+      phone_2: selectedStudent?.phone_2 || "",
+      phone_3: selectedStudent?.phone_3 || "",
+    });
+  }, [selectedStudent?.student_id]);
+
+  function saveDraft(event) {
+    event.preventDefault();
+    updateStudentDetails(selectedStudent.student_id, draft);
+  }
 
   return (
     <section className="student-layout">
@@ -559,6 +601,7 @@ function Students({ students, query, setQuery, selectedStudent, setSelectedId, p
             <div className="profile-head">
               {photoUrl ? <img className="profile-photo" src={photoUrl} alt={selectedStudent.full_name} /> : <div className="profile-avatar">{selectedStudent.display_name?.[0] || "น"}</div>}
               <div>
+                <div className="nickname">{selectedStudent.nickname || "ยังไม่ระบุชื่อเล่น"}</div>
                 <h2>{selectedStudent.full_name}</h2>
                 <p>เลขที่ {selectedStudent.seq} · เลขประจำตัว {selectedStudent.student_code || "-"}</p>
                 <div className="profile-actions">
@@ -566,13 +609,29 @@ function Students({ students, query, setQuery, selectedStudent, setSelectedId, p
                   <button className="secondary" onClick={() => setShowCitizenIds((value) => !value)} type="button">
                     <ShieldCheck size={16} /> {showCitizenIds ? "ซ่อนเลขบัตร" : "แสดงเลขบัตร"}
                   </button>
+                  {primaryPhone && <a className="secondary call-btn" href={`tel:${normalizePhone(primaryPhone)}`}>โทรด่วน</a>}
                 </div>
               </div>
             </div>
 
+            <form className="profile-edit" onSubmit={saveDraft}>
+              <label>ชื่อเล่น<input value={draft.nickname} onChange={(e) => setDraft({ ...draft, nickname: e.target.value })} placeholder="เช่น ต้น / แก้ม / ภูมิ" /></label>
+              <label className="wide">ประวัติส่วนตัว/โรคประจำตัว<textarea value={draft.health_note} onChange={(e) => setDraft({ ...draft, health_note: e.target.value })} placeholder="โรคประจำตัว แพ้ยา อาหารที่แพ้ หรือข้อมูลสำคัญที่ครูควรรู้" /></label>
+              <label>เบอร์ผู้ปกครองหลัก<input inputMode="tel" value={draft.phone} onChange={(e) => setDraft({ ...draft, phone: e.target.value })} placeholder="เบอร์หลัก" /></label>
+              <label>เบอร์สำรอง 1<input inputMode="tel" value={draft.phone_2} onChange={(e) => setDraft({ ...draft, phone_2: e.target.value })} placeholder="เบอร์สำรอง" /></label>
+              <label>เบอร์สำรอง 2<input inputMode="tel" value={draft.phone_3} onChange={(e) => setDraft({ ...draft, phone_3: e.target.value })} placeholder="เบอร์สำรอง" /></label>
+              <div className="quick-call-row wide">
+                {[draft.phone, draft.phone_2, draft.phone_3].filter((value) => normalizePhone(value)).map((value, index) => (
+                  <a key={`${value}-${index}`} className="secondary call-btn" href={`tel:${normalizePhone(value)}`}>โทรเบอร์ {index + 1}</a>
+                ))}
+              </div>
+              <button className="primary wide" type="submit">บันทึกชื่อเล่น/สุขภาพ/เบอร์โทร</button>
+            </form>
+
             <ProfileSection title="ข้อมูลนักเรียน">
               <Info label="เลขที่" value={selectedStudent.seq} />
               <Info label="เลขประจำตัว" value={selectedStudent.student_code} />
+              <Info label="ชื่อเล่น" value={selectedStudent.nickname} />
               <Info label="ชื่อ-สกุล" value={selectedStudent.full_name} />
               <Info label="ชื่อแสดง" value={selectedStudent.display_name} />
               <Info label="เพศ" value={selectedStudent.sex} />
@@ -608,6 +667,7 @@ function Students({ students, query, setQuery, selectedStudent, setSelectedId, p
               <Info label="งานค้าง" value={profile.missingHomework} />
               <Info label="ติดตามเปิดอยู่" value={profile.openFollowUps} />
               <Info label="ระดับความเสี่ยง" value={`${profile.risk}/100`} />
+              <Info label="ประวัติส่วนตัว/โรคประจำตัว" value={selectedStudent.health_note} wide />
               <Info label="ต้องติดตามพิเศษ" value={selectedStudent.needs_review} wide />
               <Info label="หมายเหตุ" value={selectedStudent.note} wide />
             </ProfileSection>
@@ -738,6 +798,10 @@ function formatCitizenId(value, show) {
   if (!show) return `ปิดบังอยู่ •••••••••${digits.slice(-4)}`;
   if (digits.length !== 13) return value;
   return `${digits[0]}-${digits.slice(1, 5)}-${digits.slice(5, 10)}-${digits.slice(10, 12)}-${digits[12]}`;
+}
+
+function normalizePhone(value) {
+  return String(value || "").replace(/[^\d+]/g, "");
 }
 
 function Empty({ text }) {
