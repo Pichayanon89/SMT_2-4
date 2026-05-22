@@ -821,17 +821,13 @@ function Students({ students, query, setQuery, selectedStudent, setSelectedId, p
 
 function Reports({ students, query, setQuery, selectedStudent, setSelectedId, profile, data, teacherName }) {
   const [reportDraft, setReportDraft] = useState({ summary: "", support: "", teacherNote: "" });
-  const [printTarget, setPrintTarget] = useState("individual");
-  const [reportMonth, setReportMonth] = useState(CURRENT_MONTH());
   const timeline = useMemo(() => buildStudentTimeline(selectedStudent, data), [selectedStudent?.student_id, data]);
-  const classReport = useMemo(() => buildClassOverview(data, reportMonth), [data, reportMonth]);
 
   useEffect(() => {
     setReportDraft(buildReportDraft(selectedStudent, profile, data));
   }, [selectedStudent?.student_id, profile.risk, profile.missingHomework, profile.openFollowUps, data]);
 
-  function printReport(target) {
-    setPrintTarget(target);
+  function printIndividualReport() {
     setTimeout(() => window.print(), 0);
   }
 
@@ -857,19 +853,9 @@ function Reports({ students, query, setQuery, selectedStudent, setSelectedId, pr
                 <p>เลขที่ {selectedStudent.seq} · เลขประจำตัว {selectedStudent.student_code || "-"}</p>
               </div>
               <div className="profile-actions">
-                <label className="month-control">เลือกเดือน<input type="month" value={reportMonth} onChange={(e) => setReportMonth(e.target.value || CURRENT_MONTH())} /></label>
-                <button className="secondary" type="button" onClick={() => printReport("class")}><Printer size={16} /> พิมพ์ภาพรวมทั้งชั้น</button>
-                <button className="primary" type="button" onClick={() => printReport("individual")}><Printer size={16} /> พิมพ์รายบุคคล</button>
+                <button className="primary" type="button" onClick={printIndividualReport}><Printer size={16} /> พิมพ์รายบุคคล</button>
               </div>
             </div>
-
-            <ProfileSection title="รายงานภาพรวมทั้งชั้น">
-              <ClassOverviewReport
-                report={classReport}
-                teacherName={teacherName}
-                printTarget={printTarget}
-              />
-            </ProfileSection>
 
             <ProfileSection title="Timeline รายบุคคล">
               <div className="timeline wide">
@@ -896,7 +882,6 @@ function Reports({ students, query, setQuery, selectedStudent, setSelectedId, pr
                 report={reportDraft}
                 teacherName={teacherName}
                 timeline={timeline}
-                printTarget={printTarget}
               />
             </ProfileSection>
           </div>
@@ -943,7 +928,7 @@ function ClassOverviewReport({ report, teacherName, printTarget }) {
   );
 }
 
-function StudentReport({ student, profile, report, teacherName, timeline, printTarget }) {
+function StudentReport({ student, profile, report, teacherName, timeline, printTarget = "individual" }) {
   const latestContact = timeline.find((item) => item.type === "contact");
   return (
     <article className={cx("print-report official-report wide", printTarget !== "individual" && "print-skip")}>
