@@ -25,6 +25,7 @@ const CLASS_ID = "c-p4-2";
 const CLASS_LABEL = "SMT ป.4/2";
 const SCHOOL_NAME = "โรงเรียนอนุบาลหนองหานวิทยายน";
 const TODAY = () => new Date().toISOString().slice(0, 10);
+const CURRENT_MONTH = () => TODAY().slice(0, 7);
 const ASSET_BASE = import.meta.env.BASE_URL || "/";
 const brandAsset = (fileName) => `${ASSET_BASE}brand/${fileName}`;
 const TEACHERS = [
@@ -510,7 +511,7 @@ function App() {
         </header>
         {message && <div className="notice">{message}</div>}
         {loading && <div className="notice">กำลังทำงาน...</div>}
-        {tab === "dashboard" && <Dashboard dashboard={dashboard} students={students} setTab={setTab} setSelectedId={setSelectedId} />}
+        {tab === "dashboard" && <Dashboard dashboard={dashboard} data={data} students={students} teacherName={profile?.display_name || session.user.email} setTab={setTab} setSelectedId={setSelectedId} />}
         {tab === "attendance" && <Attendance students={students} data={data} setAttendance={setAttendance} markAllPresent={markAllPresent} />}
         {tab === "students" && (
           <Students
@@ -557,9 +558,26 @@ function App() {
   );
 }
 
-function Dashboard({ dashboard, students, setTab, setSelectedId }) {
+function Dashboard({ dashboard, data, students, teacherName, setTab, setSelectedId }) {
+  const [reportMonth, setReportMonth] = useState(CURRENT_MONTH());
+  const classReport = useMemo(() => buildClassOverview(data, reportMonth), [data, reportMonth]);
+
+  function printClassReport() {
+    setTimeout(() => window.print(), 0);
+  }
+
   return (
     <>
+      <section className="panel action-panel dashboard-print-panel">
+        <div>
+          <h2>รายงานภาพรวมทั้งชั้น</h2>
+          <p>สรุปข้อมูลทั้งห้องในรูปแบบเอกสารราชการสำหรับพิมพ์/PDF</p>
+        </div>
+        <div className="report-controls">
+          <label>เลือกเดือน<input type="month" value={reportMonth} onChange={(e) => setReportMonth(e.target.value || CURRENT_MONTH())} /></label>
+          <button className="primary" type="button" onClick={printClassReport}><Printer size={16} /> พิมพ์รายงานภาพรวม</button>
+        </div>
+      </section>
       <section className="metrics">
         <Metric icon={Users} label="นักเรียน" value={students.length} note={CLASS_LABEL} />
         <Metric icon={ClipboardCheck} label="มาเรียนวันนี้" value={`${dashboard.attendanceRate}%`} note={`มา ${dashboard.present} / สาย ${dashboard.late} / ขาด ${dashboard.absent}`} />
@@ -583,6 +601,9 @@ function Dashboard({ dashboard, students, setTab, setSelectedId }) {
             <Bar label="ทั้งหมด" value={dashboard.behaviorTotal} total={dashboard.behaviorTotal || 1} tone="neutral" />
           </div>
         </Panel>
+      </section>
+      <section className="dashboard-print-report">
+        <ClassOverviewReport report={classReport} teacherName={teacherName} printTarget="class" />
       </section>
     </>
   );
@@ -801,8 +822,9 @@ function Students({ students, query, setQuery, selectedStudent, setSelectedId, p
 function Reports({ students, query, setQuery, selectedStudent, setSelectedId, profile, data, teacherName }) {
   const [reportDraft, setReportDraft] = useState({ summary: "", support: "", teacherNote: "" });
   const [printTarget, setPrintTarget] = useState("individual");
+  const [reportMonth, setReportMonth] = useState(CURRENT_MONTH());
   const timeline = useMemo(() => buildStudentTimeline(selectedStudent, data), [selectedStudent?.student_id, data]);
-  const classReport = useMemo(() => buildClassOverview(data), [data]);
+  const classReport = useMemo(() => buildClassOverview(data, reportMonth), [data, reportMonth]);
 
   useEffect(() => {
     setReportDraft(buildReportDraft(selectedStudent, profile, data));
@@ -835,6 +857,7 @@ function Reports({ students, query, setQuery, selectedStudent, setSelectedId, pr
                 <p>เลขที่ {selectedStudent.seq} · เลขประจำตัว {selectedStudent.student_code || "-"}</p>
               </div>
               <div className="profile-actions">
+                <label className="month-control">เลือกเดือน<input type="month" value={reportMonth} onChange={(e) => setReportMonth(e.target.value || CURRENT_MONTH())} /></label>
                 <button className="secondary" type="button" onClick={() => printReport("class")}><Printer size={16} /> พิมพ์ภาพรวมทั้งชั้น</button>
                 <button className="primary" type="button" onClick={() => printReport("individual")}><Printer size={16} /> พิมพ์รายบุคคล</button>
               </div>
@@ -886,9 +909,9 @@ function Reports({ students, query, setQuery, selectedStudent, setSelectedId, pr
 function ClassOverviewReport({ report, teacherName, printTarget }) {
   return (
     <article className={cx("print-report official-report wide", printTarget !== "class" && "print-skip")}>
-      <OfficialReportHeader title="รายงานภาพรวมชั้นเรียน" subtitle={`${CLASS_LABEL} ปีการศึกษา 2569`} />
+      <OfficialReportHeader title="รายงานภาพรวมชั้นเรียน" subtitle={`${CLASS_LABEL} ปีการศึกษา 2569 · ${report.periodLabel}`} />
       <div className="official-meta">
-        <span>เรื่อง รายงานภาพรวมการดูแลช่วยเหลือนักเรียนประจำชั้น</span>
+        <span>เรื่อง รายงานภาพรวมการดูแลช่วยเหลือนักเรียนประจำชั้น {report.periodLabel}</span>
         <span>วันที่ {dateText(TODAY())}</span>
       </div>
       <p className="official-body">
@@ -899,8 +922,8 @@ function ClassOverviewReport({ report, teacherName, printTarget }) {
       </p>
       <div className="report-grid official-grid">
         <Info label="จำนวนนักเรียน" value={`${report.totalStudents} คน`} />
-        <Info label="อัตรามาเรียนวันนี้" value={`${report.attendanceRate}%`} />
-        <Info label="มา/สาย/ขาด/ลา วันนี้" value={`${report.present}/${report.late}/${report.absent}/${report.leave}`} />
+        <Info label="อัตรามาเรียนในช่วงรายงาน" value={`${report.attendanceRate}%`} />
+        <Info label="มา/สาย/ขาด/ลา" value={`${report.present}/${report.late}/${report.absent}/${report.leave}`} />
         <Info label="งานค้างรวม" value={`${report.missingHomework} รายการ`} />
         <Info label="พฤติกรรมบวก 30 วัน" value={`${report.behaviorPositive} ครั้ง`} />
         <Info label="พฤติกรรมต้องติดตาม 30 วัน" value={`${report.behaviorNegative} ครั้ง`} />
@@ -1349,6 +1372,17 @@ function addDays(dateValue, days) {
   return date.toISOString().slice(0, 10);
 }
 
+function nextMonthStart(monthKey) {
+  const [year, month] = String(monthKey || CURRENT_MONTH()).split("-").map(Number);
+  const date = new Date(year, month, 1);
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-01`;
+}
+
+function monthLabel(monthKey) {
+  const [year, month] = String(monthKey || CURRENT_MONTH()).split("-").map(Number);
+  return new Date(year, month - 1, 1).toLocaleDateString("th-TH", { month: "long", year: "numeric" });
+}
+
 function buildDashboard(data) {
   const todayRows = data.attendance.filter((row) => row.date === TODAY());
   const present = todayRows.filter((row) => row.status === "present").length;
@@ -1374,11 +1408,17 @@ function buildDashboard(data) {
   };
 }
 
-function buildClassOverview(data) {
+function buildClassOverview(data, monthKey = CURRENT_MONTH()) {
   const dashboard = buildDashboard(data);
-  const todayRows = data.attendance.filter((row) => row.date === TODAY());
-  const leave = todayRows.filter((row) => row.status === "leave").length;
-  const contacts30 = data.parentContacts.filter((row) => row.date >= addDays(TODAY(), -30)).length;
+  const periodStart = `${monthKey || CURRENT_MONTH()}-01`;
+  const periodEnd = nextMonthStart(monthKey || CURRENT_MONTH());
+  const attendanceRows = data.attendance.filter((row) => row.date >= periodStart && row.date < periodEnd);
+  const present = attendanceRows.filter((row) => row.status === "present").length;
+  const late = attendanceRows.filter((row) => row.status === "late").length;
+  const absent = attendanceRows.filter((row) => row.status === "absent").length;
+  const leave = attendanceRows.filter((row) => row.status === "leave").length;
+  const behaviorRows = data.behavior.filter((row) => row.date >= periodStart && row.date < periodEnd);
+  const contacts = data.parentContacts.filter((row) => row.date >= periodStart && row.date < periodEnd).length;
   const watch = data.students
     .map((student) => studentProfile(student, data))
     .filter((item) => item.risk >= 25 || item.openFollowUps > 0)
@@ -1391,9 +1431,16 @@ function buildClassOverview(data) {
   ].join("\n");
   return {
     ...dashboard,
+    periodLabel: monthLabel(monthKey),
+    present,
+    late,
+    absent,
     leave,
+    attendanceRate: attendanceRows.length ? Math.round(((present + late) / attendanceRows.length) * 100) : 0,
+    behaviorPositive: behaviorRows.filter((row) => Number(row.points) > 0).length,
+    behaviorNegative: behaviorRows.filter((row) => Number(row.points) < 0).length,
     totalStudents: data.students.length,
-    parentContacts: contacts30,
+    parentContacts: contacts,
     watch,
     suggestion,
   };

@@ -74,6 +74,10 @@ header p { margin: 2px 0 0; color: #65738b; }
 .action-panel { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 14px; }
 .action-panel h2, .action-panel p { margin: 0; }
 .action-panel p { color: #65738b; }
+.dashboard-print-report { display: none; }
+.report-controls, .month-control { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.report-controls label, .month-control { color: #65738b; font-size: 12px; }
+.report-controls input, .month-control input { border: 1px solid #dde6f2; border-radius: 10px; padding: 9px; background: white; color: #172033; }
 
 .primary, .secondary, .ghost, .upload-btn {
   border: 0; border-radius: 10px; padding: 10px 12px; display: inline-flex; align-items: center; justify-content: center; gap: 8px;
@@ -248,8 +252,9 @@ header p { margin: 2px 0 0; color: #65738b; }
 @media print {
   @page { size: A4; margin: 12mm; }
   body { background: white; }
-  aside, header, .notice, .report-page > .panel:first-child, .profile > :not(.profile-section), .profile-section:not(:has(.print-report)), .report-editor { display: none !important; }
+  aside, header, .notice, .metrics, .grid-2, .dashboard-print-panel, .report-page > .panel:first-child, .profile > :not(.profile-section), .profile-section:not(:has(.print-report)), .report-editor, .month-control { display: none !important; }
   .app-shell, main, .student-layout, .report-page, .panel, .profile, .profile-grid { display: block; padding: 0; margin: 0; box-shadow: none; border: 0; width: 100%; }
+  .dashboard-print-report { display: block; }
   .panel > h2 { display: none; }
   .print-skip { display: none !important; }
   .print-report { border: 0; border-radius: 0; padding: 0; font-size: 12.5px; gap: 8px; page-break-after: avoid; break-after: avoid; }
