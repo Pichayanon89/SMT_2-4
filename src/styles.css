@@ -246,13 +246,21 @@ header p { margin: 2px 0 0; color: #65738b; }
 }
 
 @media print {
+  @page { size: A4; margin: 12mm; }
   body { background: white; }
-  aside, header, .notice, .profile > :not(.profile-section), .profile-section:not(:has(.print-report)), .report-editor { display: none !important; }
-  .app-shell, main, .student-layout, .panel, .profile, .profile-grid { display: block; padding: 0; margin: 0; box-shadow: none; border: 0; }
+  aside, header, .notice, .report-page > .panel:first-child, .profile > :not(.profile-section), .profile-section:not(:has(.print-report)), .report-editor { display: none !important; }
+  .app-shell, main, .student-layout, .report-page, .panel, .profile, .profile-grid { display: block; padding: 0; margin: 0; box-shadow: none; border: 0; width: 100%; }
   .panel > h2 { display: none; }
   .print-skip { display: none !important; }
-  .print-report { border: 0; border-radius: 0; padding: 0; font-size: 14px; }
-  .report-head img { width: 72px; height: 72px; }
+  .print-report { border: 0; border-radius: 0; padding: 0; font-size: 12.5px; gap: 8px; page-break-after: avoid; break-after: avoid; }
+  .report-head { padding-bottom: 6px; }
+  .report-head img { width: 58px; height: 58px; }
+  .report-head h2 { font-size: 18px; }
   .official-meta { grid-template-columns: 1fr auto; }
-  .info { border: 1px solid #d8dee8; background: white; break-inside: avoid; }
+  .official-body { line-height: 1.45; }
+  .report-box p { line-height: 1.35; }
+  .report-student, .report-grid { gap: 5px; }
+  .info { border: 1px solid #d8dee8; background: white; break-inside: avoid; padding: 6px; }
+  .info span { font-size: 10.5px; margin-bottom: 1px; }
+  .signature-row { margin-top: 24px; }
 }
