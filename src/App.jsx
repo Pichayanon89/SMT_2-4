@@ -800,11 +800,18 @@ function Students({ students, query, setQuery, selectedStudent, setSelectedId, p
 
 function Reports({ students, query, setQuery, selectedStudent, setSelectedId, profile, data, teacherName }) {
   const [reportDraft, setReportDraft] = useState({ summary: "", support: "", teacherNote: "" });
+  const [printTarget, setPrintTarget] = useState("individual");
   const timeline = useMemo(() => buildStudentTimeline(selectedStudent, data), [selectedStudent?.student_id, data]);
+  const classReport = useMemo(() => buildClassOverview(data), [data]);
 
   useEffect(() => {
     setReportDraft(buildReportDraft(selectedStudent, profile, data));
   }, [selectedStudent?.student_id, profile.risk, profile.missingHomework, profile.openFollowUps, data]);
+
+  function printReport(target) {
+    setPrintTarget(target);
+    setTimeout(() => window.print(), 0);
+  }
 
   return (
     <section className="student-layout report-page">
@@ -827,8 +834,19 @@ function Reports({ students, query, setQuery, selectedStudent, setSelectedId, pr
                 <h2>{selectedStudent.full_name}</h2>
                 <p>เลขที่ {selectedStudent.seq} · เลขประจำตัว {selectedStudent.student_code || "-"}</p>
               </div>
-              <button className="primary" type="button" onClick={() => window.print()}><Printer size={16} /> พิมพ์/บันทึกเป็น PDF</button>
+              <div className="profile-actions">
+                <button className="secondary" type="button" onClick={() => printReport("class")}><Printer size={16} /> พิมพ์ภาพรวมทั้งชั้น</button>
+                <button className="primary" type="button" onClick={() => printReport("individual")}><Printer size={16} /> พิมพ์รายบุคคล</button>
+              </div>
             </div>
+
+            <ProfileSection title="รายงานภาพรวมทั้งชั้น">
+              <ClassOverviewReport
+                report={classReport}
+                teacherName={teacherName}
+                printTarget={printTarget}
+              />
+            </ProfileSection>
 
             <ProfileSection title="Timeline รายบุคคล">
               <div className="timeline wide">
@@ -855,6 +873,7 @@ function Reports({ students, query, setQuery, selectedStudent, setSelectedId, pr
                 report={reportDraft}
                 teacherName={teacherName}
                 timeline={timeline}
+                printTarget={printTarget}
               />
             </ProfileSection>
           </div>
@@ -864,18 +883,59 @@ function Reports({ students, query, setQuery, selectedStudent, setSelectedId, pr
   );
 }
 
-function StudentReport({ student, profile, report, teacherName, timeline }) {
+function ClassOverviewReport({ report, teacherName, printTarget }) {
+  return (
+    <article className={cx("print-report official-report wide", printTarget !== "class" && "print-skip")}>
+      <OfficialReportHeader title="รายงานภาพรวมชั้นเรียน" subtitle={`${CLASS_LABEL} ปีการศึกษา 2569`} />
+      <div className="official-meta">
+        <span>เรื่อง รายงานภาพรวมการดูแลช่วยเหลือนักเรียนประจำชั้น</span>
+        <span>วันที่ {dateText(TODAY())}</span>
+      </div>
+      <p className="official-body">
+        เรียน ผู้อำนวยการ{SCHOOL_NAME}
+      </p>
+      <p className="official-body">
+        ตามที่ครูประจำชั้นได้รับมอบหมายให้ดูแลนักเรียน {CLASS_LABEL} ขอรายงานภาพรวมข้อมูลจากระบบ Teacher Cockpit ดังนี้
+      </p>
+      <div className="report-grid official-grid">
+        <Info label="จำนวนนักเรียน" value={`${report.totalStudents} คน`} />
+        <Info label="อัตรามาเรียนวันนี้" value={`${report.attendanceRate}%`} />
+        <Info label="มา/สาย/ขาด/ลา วันนี้" value={`${report.present}/${report.late}/${report.absent}/${report.leave}`} />
+        <Info label="งานค้างรวม" value={`${report.missingHomework} รายการ`} />
+        <Info label="พฤติกรรมบวก 30 วัน" value={`${report.behaviorPositive} ครั้ง`} />
+        <Info label="พฤติกรรมต้องติดตาม 30 วัน" value={`${report.behaviorNegative} ครั้ง`} />
+        <Info label="นักเรียนที่ควรติดตาม" value={`${report.watch.length} คน`} />
+        <Info label="การติดต่อผู้ปกครอง" value={`${report.parentContacts} ครั้ง`} />
+      </div>
+      <div className="report-box">
+        <h3>รายชื่อนักเรียนที่ควรติดตาม</h3>
+        <p>{report.watch.length ? report.watch.map((item) => `${item.student.seq}. ${item.student.full_name} - ${item.reasons.join(", ")}`).join("\n") : "ไม่พบนักเรียนที่มีสัญญาณต้องติดตามเร่งด่วนจากข้อมูลล่าสุด"}</p>
+      </div>
+      <div className="report-box">
+        <h3>ข้อเสนอแนะสำหรับครูประจำชั้น</h3>
+        <p>{report.suggestion}</p>
+      </div>
+      <OfficialSignature teacherName={teacherName} />
+    </article>
+  );
+}
+
+function StudentReport({ student, profile, report, teacherName, timeline, printTarget }) {
   const latestContact = timeline.find((item) => item.type === "contact");
   return (
-    <article className="print-report wide">
-      <div className="report-head">
-        <img src={brandAsset("anbnhs.jpg")} alt="ตราโรงเรียน" />
-        <div>
-          <h2>รายงานข้อมูลนักเรียนรายบุคคล</h2>
-          <p>{SCHOOL_NAME} · {CLASS_LABEL}</p>
-        </div>
+    <article className={cx("print-report official-report wide", printTarget !== "individual" && "print-skip")}>
+      <OfficialReportHeader title="รายงานข้อมูลนักเรียนรายบุคคล" subtitle="เอกสารประกอบการดูแลช่วยเหลือนักเรียน" />
+      <div className="official-meta">
+        <span>เรื่อง รายงานข้อมูลนักเรียนรายบุคคล</span>
+        <span>วันที่ {dateText(TODAY())}</span>
       </div>
-      <div className="report-student">
+      <p className="official-body">
+        เรียน ผู้ปกครองนักเรียน / ผู้เกี่ยวข้อง
+      </p>
+      <p className="official-body">
+        โรงเรียนขอรายงานข้อมูลเพื่อประกอบการดูแล ส่งเสริม และติดตามนักเรียนเป็นรายบุคคล โดยมีรายละเอียดดังนี้
+      </p>
+      <div className="report-student official-grid">
         <Info label="ชื่อเล่น" value={student.nickname} />
         <Info label="ชื่อ-สกุล" value={student.full_name} />
         <Info label="เลขที่/เลขประจำตัว" value={`${student.seq} / ${student.student_code || "-"}`} />
@@ -899,18 +959,37 @@ function StudentReport({ student, profile, report, teacherName, timeline }) {
         <h3>ข้อความจากครู</h3>
         <p>{report.teacherNote || "-"}</p>
       </div>
-      <div className="signature-row">
-        <div>
-          <span>ลงชื่อ</span>
-          <b>{teacherName}</b>
-          <small>ครูผู้ออกเอกสาร</small>
-        </div>
-        <div>
-          <span>วันที่ออกเอกสาร</span>
-          <b>{dateText(TODAY())}</b>
-        </div>
-      </div>
+      <OfficialSignature teacherName={teacherName} />
     </article>
+  );
+}
+
+function OfficialReportHeader({ title, subtitle }) {
+  return (
+    <div className="report-head official-head">
+      <img src={brandAsset("anbnhs.jpg")} alt="ตราโรงเรียน" />
+      <div>
+        <h2>{title}</h2>
+        <p>{subtitle}</p>
+        <p>{SCHOOL_NAME} · {CLASS_LABEL}</p>
+      </div>
+    </div>
+  );
+}
+
+function OfficialSignature({ teacherName }) {
+  return (
+    <div className="signature-row official-signature">
+      <div>
+        <span>ลงชื่อ</span>
+        <b>{teacherName}</b>
+        <small>ครูผู้ออกเอกสาร</small>
+      </div>
+      <div>
+        <span>วันที่ออกเอกสาร</span>
+        <b>{dateText(TODAY())}</b>
+      </div>
+    </div>
   );
 }
 
@@ -1292,6 +1371,31 @@ function buildDashboard(data) {
     behaviorTotal: behavior30.length,
     behaviorPositive: behavior30.filter((row) => Number(row.points) > 0).length,
     behaviorNegative: behavior30.filter((row) => Number(row.points) < 0).length,
+  };
+}
+
+function buildClassOverview(data) {
+  const dashboard = buildDashboard(data);
+  const todayRows = data.attendance.filter((row) => row.date === TODAY());
+  const leave = todayRows.filter((row) => row.status === "leave").length;
+  const contacts30 = data.parentContacts.filter((row) => row.date >= addDays(TODAY(), -30)).length;
+  const watch = data.students
+    .map((student) => studentProfile(student, data))
+    .filter((item) => item.risk >= 25 || item.openFollowUps > 0)
+    .sort((a, b) => b.risk - a.risk)
+    .slice(0, 12);
+  const suggestion = [
+    dashboard.missingHomework ? "ควรติดตามนักเรียนที่มีงานค้างและประสานผู้ปกครองเป็นรายกรณี" : "ควรรักษาระดับการส่งงานและเสริมแรงเชิงบวกอย่างต่อเนื่อง",
+    dashboard.behaviorNegative ? "ควรบันทึกพฤติกรรมที่ต้องติดตามพร้อมแนวทางช่วยเหลือหลังพูดคุยทุกครั้ง" : "ภาพรวมพฤติกรรมไม่พบสัญญาณลบเด่นจากข้อมูลล่าสุด",
+    watch.length ? "ควรทบทวนรายชื่อนักเรียนที่ควรติดตามในที่ประชุมครูประจำชั้น และกำหนดผู้รับผิดชอบติดตามแต่ละราย" : "ยังไม่พบกลุ่มเสี่ยงเร่งด่วน แต่ควรติดตามการมาเรียนเป็นประจำ",
+  ].join("\n");
+  return {
+    ...dashboard,
+    leave,
+    totalStudents: data.students.length,
+    parentContacts: contacts30,
+    watch,
+    suggestion,
   };
 }
 

@@ -182,11 +182,16 @@ header p { margin: 2px 0 0; color: #65738b; }
 .timeline-item strong { display: block; margin: 2px 0; color: #17345f; }
 .timeline-item p { margin: 0; color: #34445d; }
 .print-report { display: grid; gap: 12px; padding: 16px; border: 1px solid #cbd5e1; border-radius: 12px; background: white; }
+.official-report { color: #111827; }
 .report-head { display: flex; align-items: center; gap: 12px; border-bottom: 2px solid #12315f; padding-bottom: 10px; }
+.official-head { justify-content: center; text-align: center; border-bottom: 3px double #111827; }
 .report-head img { width: 64px; height: 64px; object-fit: contain; border-radius: 50%; }
 .report-head h2, .report-head p, .report-box h3, .report-box p { margin: 0; }
 .report-head p { color: #65738b; }
+.official-meta { display: grid; grid-template-columns: 1fr auto; gap: 12px; border-bottom: 1px solid #cbd5e1; padding-bottom: 8px; }
+.official-body { margin: 0; line-height: 1.7; text-indent: 2em; }
 .report-student, .report-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.official-grid .info { background: white; border: 1px solid #d8dee8; }
 .report-box { display: grid; gap: 6px; }
 .report-box h3 { display: flex; align-items: center; gap: 6px; color: #17345f; font-size: 15px; }
 .report-box p { white-space: pre-wrap; line-height: 1.55; color: #34445d; }
@@ -194,6 +199,7 @@ header p { margin: 2px 0 0; color: #65738b; }
 .signature-row div { text-align: center; border-top: 1px solid #94a3b8; padding-top: 8px; }
 .signature-row span, .signature-row small { display: block; color: #65738b; font-size: 12px; }
 .signature-row b { display: block; margin: 4px 0; }
+.official-signature { margin-top: 32px; }
 
 .form { display: grid; gap: 10px; }
 .form label { display: grid; gap: 6px; color: #65738b; }
@@ -244,7 +250,9 @@ header p { margin: 2px 0 0; color: #65738b; }
   aside, header, .notice, .profile > :not(.profile-section), .profile-section:not(:has(.print-report)), .report-editor { display: none !important; }
   .app-shell, main, .student-layout, .panel, .profile, .profile-grid { display: block; padding: 0; margin: 0; box-shadow: none; border: 0; }
   .panel > h2 { display: none; }
+  .print-skip { display: none !important; }
   .print-report { border: 0; border-radius: 0; padding: 0; font-size: 14px; }
   .report-head img { width: 72px; height: 72px; }
+  .official-meta { grid-template-columns: 1fr auto; }
   .info { border: 1px solid #d8dee8; background: white; break-inside: avoid; }
 }
