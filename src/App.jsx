@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import {
   BarChart3,
   BookOpenCheck,
+  CalendarDays,
   Camera,
   CheckCircle2,
   ClipboardCheck,
@@ -33,7 +34,112 @@ const TEACHERS = [
   "นายพิชญานนท์ วัจนสุนทร",
   "นายพงศกร วิบุญกุล",
 ];
+const DAYS = [
+  ["mon", "จันทร์"],
+  ["tue", "อังคาร"],
+  ["wed", "พุธ"],
+  ["thu", "พฤหัสบดี"],
+  ["fri", "ศุกร์"],
+];
+const PERIODS = [
+  { period: "homeroom", label: "Homeroom", time: "08:40-09:00" },
+  { period: 1, label: "คาบที่ 1", time: "09:00-10:00" },
+  { period: 2, label: "คาบที่ 2", time: "10:00-11:00" },
+  { period: 3, label: "คาบที่ 3", time: "11:00-12:00" },
+  { period: "lunch", label: "พักกลางวัน", time: "12:00-13:00" },
+  { period: 4, label: "คาบที่ 4", time: "13:00-14:00" },
+  { period: 5, label: "คาบที่ 5", time: "14:00-15:00" },
+  { period: 6, label: "คาบที่ 6", time: "15:00-16:00" },
+];
+const CLASS_TIMETABLE = {
+  mon: {
+    homeroom: ["Homeroom", ""],
+    1: ["ศิลปะ", "นางสาวมลฤดี ธานีกุล"],
+    2: ["ประวัติศาสตร์", "นางสาวมนฑิรา ศรีธรรมมา"],
+    3: ["ภาษาไทย", "นางสาวพิสารรรณ เอี่ยมเมือง"],
+    lunch: ["พักกลางวัน", ""],
+    4: ["ภาษาอังกฤษ", "นางจิระประกา มุมอ่อน"],
+    5: ["วิทยาศาสตร์", "นายปริญญา มั่นพรรษา"],
+    6: ["วิทยาศาสตร์", "นายปริญญา มั่นพรรษา"],
+  },
+  tue: {
+    homeroom: ["Homeroom", ""],
+    1: ["คณิตศาสตร์", "นางสาววรรณิดา พันพรม"],
+    2: ["สังคมศึกษา", "นางสาวมนฑิรา ศรีธรรมมา"],
+    3: ["คณิตเพื่อการสืบเสาะ", "นายพิชญานนท์ วัจนสุนทร"],
+    lunch: ["พักกลางวัน", ""],
+    4: ["ภาษาไทย", "นางสาวพิสารรรณ เอี่ยมเมือง"],
+    5: ["คิดริเริ่มสร้างสรรค์ STEM", "นางฐิติยาภรณ์ วิเศษโวหาร"],
+    6: ["คิดริเริ่มสร้างสรรค์ STEM", "นางฐิติยาภรณ์ วิเศษโวหาร"],
+  },
+  wed: {
+    homeroom: ["Homeroom", ""],
+    1: ["ภาษาไทย", "นางสาวพิสารรรณ เอี่ยมเมือง"],
+    2: ["นาฏศิลป์", "นางสาวนภาภรณ์ ภักดีครู"],
+    3: ["วิทยาศาสตร์", "นายปริญญา มั่นพรรษา"],
+    lunch: ["พักกลางวัน", ""],
+    4: ["คณิตเพื่อการสืบเสาะ", "นายพิชญานนท์ วัจนสุนทร"],
+    5: ["คณิตศาสตร์", "นางสาววรรณิดา พันพรม"],
+    6: ["PLC", ""],
+  },
+  thu: {
+    homeroom: ["Homeroom", ""],
+    1: ["คณิตศาสตร์", "นางสาววรรณิดา พันพรม"],
+    2: ["ภาษาไทย", "นางสาวพิสารรรณ เอี่ยมเมือง"],
+    3: ["ภาษาอังกฤษ", "นางจิระประกา มุมอ่อน"],
+    lunch: ["พักกลางวัน", ""],
+    4: ["การงาน", "นายพิชญานนท์ วัจนสุนทร"],
+    5: ["ลูกเสือ/เนตรนารี", ""],
+    6: ["แนะแนว", ""],
+  },
+  fri: {
+    homeroom: ["Homeroom", ""],
+    1: ["ภาษาอังกฤษเพื่อการสื่อสาร", "นางจิระประกา มุมอ่อน"],
+    2: ["คณิตศาสตร์", "นางสาววรรณิดา พันพรม"],
+    3: ["สุข/พละ", "นายสังคม หาญนาดง"],
+    lunch: ["พักกลางวัน", ""],
+    4: ["สังคมศึกษา", "นางสาวมนฑิรา ศรีธรรมมา"],
+    5: ["Programming", "นายอภิสิทธิ์ ใหม่วงษ์"],
+    6: ["Programming", "นายอภิสิทธิ์ ใหม่วงษ์"],
+  },
+};
+const TEACHER_TIMETABLE = {
+  mon: {
+    homeroom: ["Homeroom", ""],
+    2: ["การงาน", "ป.4/4"],
+    3: ["การงาน", "ป.4/3"],
+    lunch: ["พักกลางวัน", ""],
+    4: ["การงาน", "ป.4/5"],
+    5: ["คิดริเริ่มสร้างสรรค์ STEM", "ป.5/2"],
+    6: ["คิดริเริ่มสร้างสรรค์ STEM", "ป.5/2"],
+  },
+  tue: {
+    homeroom: ["Homeroom", ""],
+    3: ["คณิตเพื่อการสืบเสาะ", "ป.4/2"],
+    lunch: ["พักกลางวัน", ""],
+    5: ["Co+คิดริเริ่มสร้างสรรค์ STEM", "ป.4/2 · ครูฐิติยาภรณ์"],
+    6: ["Co+คิดริเริ่มสร้างสรรค์ STEM", "ป.4/2 · ครูฐิติยาภรณ์"],
+  },
+  wed: {
+    homeroom: ["Homeroom", ""],
+    2: ["วิทยาศาสตร์", "ป.1/1"],
+    lunch: ["พักกลางวัน", ""],
+    4: ["คณิตเพื่อการสืบเสาะ", "ป.4/2"],
+  },
+  thu: {
+    homeroom: ["Homeroom", ""],
+    1: ["วิทยาการคำนวณ", "ป.4/1"],
+    lunch: ["พักกลางวัน", ""],
+    4: ["การงาน", "ป.4/2"],
+    5: ["ลูกเสือ/ยุวกาชาด", "ป.4/2"],
+  },
+  fri: {
+    homeroom: ["Homeroom", ""],
+    1: ["วิทยาศาสตร์", "ป.1/1"],
+  },
+};
 const navItems = [
+  ["today", CalendarDays, "วันนี้"],
   ["dashboard", BarChart3, "แดชบอร์ด"],
   ["attendance", ClipboardCheck, "เช็คชื่อ"],
   ["students", Users, "นักเรียน"],
@@ -100,7 +206,7 @@ function App() {
   const [supabaseReady, setSupabaseReady] = useState(true);
   const [session, setSession] = useState(null);
   const [profile, setProfile] = useState(null);
-  const [tab, setTab] = useState("dashboard");
+  const [tab, setTab] = useState("today");
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
   const [data, setData] = useState(emptyData());
@@ -511,6 +617,7 @@ function App() {
         </header>
         {message && <div className="notice">{message}</div>}
         {loading && <div className="notice">กำลังทำงาน...</div>}
+        {tab === "today" && <Today data={data} students={students} dashboard={dashboard} setTab={setTab} setSelectedId={setSelectedId} />}
         {tab === "dashboard" && <Dashboard dashboard={dashboard} data={data} students={students} teacherName={profile?.display_name || session.user.email} setTab={setTab} setSelectedId={setSelectedId} />}
         {tab === "attendance" && <Attendance students={students} data={data} setAttendance={setAttendance} markAllPresent={markAllPresent} />}
         {tab === "students" && (
@@ -555,6 +662,125 @@ function App() {
         {tab === "setup" && <SetupPanel students={students} teachers={data.teachers} seedStudents={seedStudents} importRosterCsvFile={importRosterCsvFile} profile={profile} />}
       </main>
     </div>
+  );
+}
+
+function Today({ data, students, dashboard, setTab, setSelectedId }) {
+  const todayKey = dayKeyForDate(new Date());
+  const tomorrowKey = dayKeyForDate(dateOffset(new Date(), 1));
+  const todayLabel = dayLabel(todayKey);
+  const tomorrowLabel = dayLabel(tomorrowKey);
+  const classToday = scheduleForDay(CLASS_TIMETABLE, todayKey);
+  const classTomorrow = scheduleForDay(CLASS_TIMETABLE, tomorrowKey);
+  const teacherToday = scheduleForDay(TEACHER_TIMETABLE, todayKey);
+  const teacherTomorrow = scheduleForDay(TEACHER_TIMETABLE, tomorrowKey);
+  const nextClass = nextScheduleItem(CLASS_TIMETABLE);
+  const nextTeacher = nextScheduleItem(TEACHER_TIMETABLE);
+  const todayRows = data.attendance.filter((row) => row.date === TODAY());
+  const unchecked = Math.max(0, students.length - new Set(todayRows.map((row) => row.student_id)).size);
+  const openFollowUps = data.followUps.filter((row) => row.status !== "done");
+  const dueContacts = data.parentContacts.filter((row) => row.next_date && row.next_date <= TODAY());
+  const watch = dashboard.watch || [];
+
+  return (
+    <>
+      <section className="panel today-hero">
+        <div>
+          <span className="eyebrow">งานวันนี้</span>
+          <h2>{dateText(TODAY())}</h2>
+          <p>สรุปคาบถัดไป เช็คชื่อ และรายการติดตามของครูประจำชั้น {CLASS_LABEL}</p>
+        </div>
+        <div className="quick-actions">
+          <button className="primary" type="button" onClick={() => setTab("attendance")}><ClipboardCheck size={16} /> เช็คชื่อ</button>
+          <button className="secondary" type="button" onClick={() => setTab("work")}><BookOpenCheck size={16} /> งาน/พฤติกรรม</button>
+        </div>
+      </section>
+
+      <section className="today-grid">
+        <Panel title="คาบถัดไปของห้อง">
+          <NextLesson item={nextClass} fallback="วันนี้ไม่มีคาบเรียนของห้อง หรือเลยเวลาสอนแล้ว" />
+        </Panel>
+        <Panel title="คาบถัดไปของครูพิชญานนท์">
+          <NextLesson item={nextTeacher} fallback="วันนี้ไม่มีคาบสอน หรือเลยเวลาสอนแล้ว" />
+        </Panel>
+      </section>
+
+      <section className="metrics today-metrics">
+        <Metric icon={ClipboardCheck} label="ยังไม่ได้เช็คชื่อ" value={unchecked} note={`มา ${dashboard.present} / สาย ${dashboard.late} / ขาด ${dashboard.absent}`} />
+        <Metric icon={BookOpenCheck} label="งานค้างรวม" value={dashboard.missingHomework} note={`งานที่เปิด ${dashboard.activeHomework} งาน`} />
+        <Metric icon={ShieldCheck} label="ต้องติดตาม" value={watch.length} note="จากข้อมูลล่าสุด" />
+        <Metric icon={PhoneCall} label="นัดติดตามผู้ปกครอง" value={dueContacts.length} note="ถึงกำหนดหรือเลยกำหนด" />
+      </section>
+
+      <section className="grid-2">
+        <Panel title="รายการที่ควรทำวันนี้">
+          <div className="todo-list">
+            <TodoItem done={unchecked === 0} title="เช็คชื่อให้ครบ" note={unchecked ? `เหลือ ${unchecked} คนที่ยังไม่มีผู้บันทึกวันนี้` : "เช็คชื่อครบแล้ว"} onClick={() => setTab("attendance")} />
+            <TodoItem done={!dashboard.missingHomework} title="ติดตามงานค้าง" note={dashboard.missingHomework ? `ยังมีงานค้างรวม ${dashboard.missingHomework} รายการ` : "ไม่มีงานค้างในงานที่เปิดอยู่"} onClick={() => setTab("work")} />
+            <TodoItem done={!openFollowUps.length} title="ปิดรายการติดตามที่เสร็จแล้ว" note={openFollowUps.length ? `เปิดอยู่ ${openFollowUps.length} รายการ` : "ไม่มีรายการติดตามเปิดอยู่"} onClick={() => setTab("work")} />
+            <TodoItem done={!dueContacts.length} title="โทร/ติดตามผู้ปกครองตามนัด" note={dueContacts.length ? `ถึงกำหนด ${dueContacts.length} รายการ` : "ยังไม่มีนัดติดตามที่ถึงกำหนด"} />
+          </div>
+        </Panel>
+        <Panel title="นักเรียนที่ควรดูวันนี้">
+          {watch.length ? watch.slice(0, 5).map((item) => (
+            <button className="row-btn" key={item.student.student_id} onClick={() => { setSelectedId(item.student.student_id); setTab("students"); }}>
+              <span className="seq">{item.student.seq}</span>
+              <div><strong>{item.student.full_name}</strong><small>{item.reasons[0]}</small></div>
+              <b className={cx("risk", item.level)}>{item.risk}</b>
+            </button>
+          )) : <Empty text="ยังไม่มีนักเรียนที่ต้องติดตามเร่งด่วน" />}
+        </Panel>
+      </section>
+
+      <section className="today-grid">
+        <Panel title={`ตารางเรียนห้อง ${todayLabel || "วันนี้"}`}>
+          <ScheduleList items={classToday} emptyText="วันนี้ไม่มีตารางเรียนของห้อง" />
+        </Panel>
+        <Panel title={`ตารางสอนครู ${todayLabel || "วันนี้"}`}>
+          <ScheduleList items={teacherToday} emptyText="วันนี้ไม่มีคาบสอน" />
+        </Panel>
+        <Panel title={`ตารางเรียนพรุ่งนี้ ${tomorrowLabel || ""}`}>
+          <ScheduleList items={classTomorrow} emptyText="พรุ่งนี้ไม่มีตารางเรียนของห้อง" />
+        </Panel>
+        <Panel title={`ตารางสอนครูพรุ่งนี้ ${tomorrowLabel || ""}`}>
+          <ScheduleList items={teacherTomorrow} emptyText="พรุ่งนี้ไม่มีคาบสอน" />
+        </Panel>
+      </section>
+    </>
+  );
+}
+
+function NextLesson({ item, fallback }) {
+  if (!item) return <Empty text={fallback} />;
+  return (
+    <div className="next-lesson">
+      <span>{item.dayLabel} · {item.label}</span>
+      <strong>{item.subject}</strong>
+      <p>{item.time}{item.teacher ? ` · ${item.teacher}` : ""}</p>
+    </div>
+  );
+}
+
+function ScheduleList({ items, emptyText }) {
+  if (!items.length) return <Empty text={emptyText} />;
+  return (
+    <div className="schedule-list">
+      {items.map((item) => (
+        <div className={cx("schedule-item", item.period === "lunch" && "break")} key={`${item.period}-${item.subject}`}>
+          <span>{item.label}<small>{item.time}</small></span>
+          <div><strong>{item.subject}</strong><small>{item.teacher}</small></div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function TodoItem({ done, title, note, onClick }) {
+  return (
+    <button className={cx("todo-item", done && "done")} type="button" onClick={onClick}>
+      <CheckCircle2 size={18} />
+      <div><strong>{title}</strong><small>{note}</small></div>
+    </button>
   );
 }
 
@@ -1355,6 +1581,54 @@ function addDays(dateValue, days) {
   const date = new Date(`${dateValue}T00:00:00`);
   date.setDate(date.getDate() + days);
   return date.toISOString().slice(0, 10);
+}
+
+function dateOffset(dateValue, days) {
+  const date = new Date(dateValue);
+  date.setDate(date.getDate() + days);
+  return date;
+}
+
+function dayKeyForDate(dateValue) {
+  return [null, "mon", "tue", "wed", "thu", "fri", null][new Date(dateValue).getDay()] || "";
+}
+
+function dayLabel(dayKeyValue) {
+  return DAYS.find(([key]) => key === dayKeyValue)?.[1] || "";
+}
+
+function scheduleForDay(table, dayKeyValue) {
+  const day = table[dayKeyValue];
+  if (!day) return [];
+  return PERIODS
+    .filter(({ period }) => day[period])
+    .map(({ period, label, time }) => ({
+      period,
+      label,
+      time,
+      subject: day[period][0],
+      teacher: day[period][1] || "",
+      dayKey: dayKeyValue,
+      dayLabel: dayLabel(dayKeyValue),
+    }));
+}
+
+function nextScheduleItem(table) {
+  const now = new Date();
+  const currentMinutes = now.getHours() * 60 + now.getMinutes();
+  for (let offset = 0; offset < 8; offset += 1) {
+    const date = dateOffset(now, offset);
+    const key = dayKeyForDate(date);
+    const items = scheduleForDay(table, key).filter((item) => item.period !== "lunch");
+    const next = items.find((item) => offset > 0 || minutesFromTimeRange(item.time) >= currentMinutes);
+    if (next) return next;
+  }
+  return null;
+}
+
+function minutesFromTimeRange(range) {
+  const [hour, minute] = String(range || "00:00").split("-")[0].split(":").map(Number);
+  return (hour || 0) * 60 + (minute || 0);
 }
 
 function nextMonthStart(monthKey) {

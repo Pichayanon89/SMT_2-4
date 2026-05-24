@@ -69,11 +69,28 @@ header p { margin: 2px 0 0; color: #65738b; }
 .metric strong { display: block; font-size: 26px; margin: 2px 0; }
 
 .grid-2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+.today-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin-bottom: 14px; }
 .panel { padding: 16px; }
 .panel h2 { margin: 0 0 12px; font-size: 18px; }
 .action-panel { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 14px; }
 .action-panel h2, .action-panel p { margin: 0; }
 .action-panel p { color: #65738b; }
+.today-hero { display: flex; justify-content: space-between; align-items: center; gap: 14px; margin-bottom: 14px; }
+.today-hero h2, .today-hero p { margin: 0; }
+.eyebrow { display: inline-block; margin-bottom: 5px; color: #65738b; font-size: 12px; font-weight: 700; }
+.quick-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.next-lesson { display: grid; gap: 4px; padding: 12px; border: 1px solid #dde6f2; border-radius: 12px; background: #f8fafc; }
+.next-lesson span, .next-lesson p { margin: 0; color: #65738b; }
+.next-lesson strong { font-size: 22px; color: #17345f; }
+.schedule-list, .todo-list { display: grid; gap: 8px; }
+.schedule-item { display: grid; grid-template-columns: 118px 1fr; gap: 10px; align-items: center; padding: 10px; border: 1px solid #dde6f2; border-radius: 12px; background: #f8fafc; }
+.schedule-item.break { opacity: .72; }
+.schedule-item span, .schedule-item small { color: #65738b; }
+.schedule-item span, .schedule-item strong, .schedule-item small { display: block; }
+.todo-item { width: 100%; display: flex; gap: 10px; align-items: center; border: 1px solid #dde6f2; background: #fff; border-radius: 12px; padding: 10px; text-align: left; }
+.todo-item svg { color: #c79a20; flex: 0 0 auto; }
+.todo-item.done svg { color: #16a34a; }
+.todo-item small { display: block; color: #65738b; margin-top: 2px; }
 .dashboard-print-report { display: none; }
 .report-controls, .month-control { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .report-controls label, .month-control { color: #65738b; font-size: 12px; }
@@ -283,6 +300,13 @@ header p,
 .metric small,
 .metric em,
 .action-panel p,
+.today-hero p,
+.eyebrow,
+.next-lesson span,
+.next-lesson p,
+.schedule-item span,
+.schedule-item small,
+.todo-item small,
 .student-line small,
 .row-btn small,
 .work-row small,
@@ -355,6 +379,9 @@ nav button:hover,
 .metric:nth-child(4) > span { background: rgba(244, 63, 94, .2); color: #fb7185; }
 
 .row-btn,
+.next-lesson,
+.schedule-item,
+.todo-item,
 .search,
 .profile-edit,
 .contact-form,
@@ -385,7 +412,8 @@ nav button:hover,
 }
 
 .row-btn:hover,
-.row-btn.active {
+.row-btn.active,
+.todo-item:hover {
   background: rgba(255, 255, 255, .1);
 }
 
@@ -404,6 +432,9 @@ nav button:hover,
 }
 
 .info strong,
+.next-lesson strong,
+.schedule-item strong,
+.todo-item strong,
 .timeline-item strong,
 .timeline-item p,
 .report-box p {
@@ -512,18 +543,20 @@ nav button:hover,
   .app-shell { display: block; }
   aside { position: sticky; top: 0; z-index: 5; padding: 10px; }
   .brand span, .side-foot { display: none; }
-  nav { grid-template-columns: repeat(6, 1fr); gap: 4px; }
+  nav { grid-template-columns: repeat(7, 1fr); gap: 4px; }
   nav button { justify-content: center; padding: 9px 4px; font-size: 12px; flex-direction: column; gap: 2px; }
   main { padding: 14px; }
   header { align-items: flex-start; }
   header h1 { font-size: 21px; }
-  .metrics, .grid-2, .student-layout, .profile-grid, .profile-edit, .contact-form, .report-student, .report-grid, .signature-row { grid-template-columns: 1fr; }
+  .metrics, .grid-2, .today-grid, .student-layout, .profile-grid, .profile-edit, .contact-form, .report-student, .report-grid, .signature-row { grid-template-columns: 1fr; }
   .profile-head { align-items: flex-start; }
-  .action-panel { align-items: stretch; flex-direction: column; }
+  .action-panel, .today-hero { align-items: stretch; flex-direction: column; }
 }
 
 @media (max-width: 520px) {
+  nav { grid-template-columns: repeat(4, 1fr); }
   .status-grid { grid-template-columns: repeat(2, 1fr); }
+  .schedule-item { grid-template-columns: 1fr; }
   .form-row { grid-template-columns: 1fr; }
   .metric strong { font-size: 24px; }
   .profile-head { display: grid; }
