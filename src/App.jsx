@@ -142,8 +142,8 @@ const TEACHER_TIMETABLE = {
 const navItems = [
   ["today", CalendarDays, "วันนี้"],
   ["dashboard", BarChart3, "แดชบอร์ด"],
-  ["attendance", ClipboardCheck, "เช็คชื่อ"],
-  ["attendanceBook", Table2, "ปพ.5"],
+  ["attendance", ClipboardCheck, "เช็คชื่อรายวัน"],
+  ["attendanceBook", Table2, "เช็คชื่อรายเดือน"],
   ["students", Users, "นักเรียน"],
   ["reports", FileText, "รายงาน"],
   ["work", BookOpenCheck, "งาน/พฤติกรรม"],
@@ -878,7 +878,7 @@ function AttendanceBook({ students, data, setAttendance }) {
       <section className="panel attendance-ledger-panel">
         <div className="ledger-head">
           <div>
-            <h2>ตารางเช็คชื่อแบบ ปพ.5</h2>
+            <h2>เช็คชื่อรายเดือน</h2>
             <p>เห็นภาพรวมทั้งห้องรายเดือน และแก้ไขสถานะรายวันได้จากช่องตาราง</p>
           </div>
           <label className="month-control">เลือกเดือน<input type="month" value={monthKey} onChange={(e) => setMonthKey(e.target.value || CURRENT_MONTH())} /></label>
