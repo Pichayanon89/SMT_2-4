@@ -25,7 +25,7 @@ import { getSupabaseClient } from "./supabaseClient";
 const CLASS_ID = "c-p4-2";
 const CLASS_LABEL = "SMT ป.4/2";
 const SCHOOL_NAME = "โรงเรียนอนุบาลหนองหานวิทยายน";
-const TODAY = () => new Date().toISOString().slice(0, 10);
+const TODAY = () => localDateKey();
 const CURRENT_MONTH = () => TODAY().slice(0, 7);
 const ASSET_BASE = import.meta.env.BASE_URL || "/";
 const brandAsset = (fileName) => `${ASSET_BASE}brand/${fileName}`;
@@ -1578,15 +1578,24 @@ function emptyData() {
 }
 
 function addDays(dateValue, days) {
-  const date = new Date(`${dateValue}T00:00:00`);
+  const [year, month, day] = String(dateValue || TODAY()).split("-").map(Number);
+  const date = year ? new Date(year, month - 1, day) : new Date(dateValue);
   date.setDate(date.getDate() + days);
-  return date.toISOString().slice(0, 10);
+  return localDateKey(date);
 }
 
 function dateOffset(dateValue, days) {
   const date = new Date(dateValue);
   date.setDate(date.getDate() + days);
   return date;
+}
+
+function localDateKey(dateValue = new Date()) {
+  const date = new Date(dateValue);
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
 }
 
 function dayKeyForDate(dateValue) {
