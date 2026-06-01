@@ -392,6 +392,57 @@ function App() {
     await loadAll();
   }
 
+  async function markClassAttendance(date, status, mode = "missing") {
+    const targetDate = date || TODAY();
+    const recorder = profile?.display_name || session?.user?.email || "";
+    const existingRes = await supabase.from("attendance").select("*").eq("classroom_id", CLASS_ID).eq("date", targetDate);
+    if (existingRes.error) return setMessage(existingRes.error.message);
+    const existingRows = existingRes.data || [];
+    const existingByStudent = new Map(existingRows.map((row) => [row.student_id, row]));
+    const targets = mode === "overwrite"
+      ? students
+      : students.filter((student) => !existingByStudent.has(student.student_id));
+    if (!targets.length) {
+      setMessage(`วันที่ ${dateText(targetDate)} มีข้อมูลครบทั้งห้องแล้ว`);
+      return;
+    }
+    const overwriteText = mode === "overwrite" && existingRows.length
+      ? `\n\nคำเตือน: จะเขียนทับข้อมูลเดิม ${existingRows.length} รายการในวันที่เลือก`
+      : "";
+    const ok = window.confirm(`บันทึก "${statusText(status)}" ให้ ${targets.length} คน วันที่ ${dateText(targetDate)} ใช่ไหม?${overwriteText}`);
+    if (!ok) return;
+    const rows = targets.map((student) => ({
+      classroom_id: CLASS_ID,
+      date: targetDate,
+      student_id: student.student_id,
+      status,
+      updated_at: new Date().toISOString(),
+      updated_by: recorder,
+    }));
+    const { error } = await supabase.from("attendance").upsert(rows, { onConflict: "date,student_id" });
+    if (error) return setMessage(error.message);
+    setMessage(`บันทึกย้อนหลังทั้งห้องแล้ว ${targets.length} รายการ`);
+    await loadAll();
+    await loadAttendanceMonth(targetDate.slice(0, 7));
+  }
+
+  async function loadAttendanceMonth(monthKey) {
+    const periodStart = `${monthKey || CURRENT_MONTH()}-01`;
+    const periodEnd = nextMonthStart(monthKey || CURRENT_MONTH());
+    const { data: rows, error } = await supabase
+      .from("attendance")
+      .select("*")
+      .eq("classroom_id", CLASS_ID)
+      .gte("date", periodStart)
+      .lt("date", periodEnd)
+      .order("date", { ascending: false });
+    if (error) return setMessage(error.message);
+    setData((prev) => {
+      const outsideMonth = prev.attendance.filter((row) => row.date < periodStart || row.date >= periodEnd);
+      return { ...prev, attendance: [...outsideMonth, ...(rows || [])] };
+    });
+  }
+
   async function addHomework(event) {
     event.preventDefault();
     const title = form.homeworkTitle?.trim();
@@ -622,7 +673,7 @@ function App() {
         {tab === "today" && <Today data={data} students={students} dashboard={dashboard} setTab={setTab} setSelectedId={setSelectedId} />}
         {tab === "dashboard" && <Dashboard dashboard={dashboard} data={data} students={students} teacherName={profile?.display_name || session.user.email} setTab={setTab} setSelectedId={setSelectedId} />}
         {tab === "attendance" && <Attendance students={students} data={data} setAttendance={setAttendance} markAllPresent={markAllPresent} />}
-        {tab === "attendanceBook" && <AttendanceBook students={students} data={data} setAttendance={setAttendance} />}
+        {tab === "attendanceBook" && <AttendanceBook students={students} data={data} setAttendance={setAttendance} markClassAttendance={markClassAttendance} loadAttendanceMonth={loadAttendanceMonth} />}
         {tab === "students" && (
           <Students
             students={filteredStudents}
@@ -870,9 +921,22 @@ function Attendance({ students, data, setAttendance, markAllPresent }) {
   );
 }
 
-function AttendanceBook({ students, data, setAttendance }) {
+function AttendanceBook({ students, data, setAttendance, markClassAttendance, loadAttendanceMonth }) {
   const [monthKey, setMonthKey] = useState(CURRENT_MONTH());
+  const [bulkDate, setBulkDate] = useState(TODAY());
+  const [bulkStatus, setBulkStatus] = useState("present");
+  const [bulkMode, setBulkMode] = useState("missing");
   const monthDates = useMemo(() => datesInMonth(monthKey), [monthKey]);
+
+  useEffect(() => {
+    loadAttendanceMonth(monthKey);
+  }, [monthKey]);
+
+  function submitBulkAttendance(event) {
+    event.preventDefault();
+    markClassAttendance(bulkDate, bulkStatus, bulkMode);
+  }
+
   return (
     <>
       <section className="panel attendance-ledger-panel">
@@ -883,6 +947,20 @@ function AttendanceBook({ students, data, setAttendance }) {
           </div>
           <label className="month-control">เลือกเดือน<input type="month" value={monthKey} onChange={(e) => setMonthKey(e.target.value || CURRENT_MONTH())} /></label>
         </div>
+        <form className="bulk-attendance" onSubmit={submitBulkAttendance}>
+          <label>วันที่<input type="date" value={bulkDate} onChange={(e) => setBulkDate(e.target.value || TODAY())} /></label>
+          <label>สถานะ<select value={bulkStatus} onChange={(e) => setBulkStatus(e.target.value)}>
+            <option value="present">มาทั้งหมด</option>
+            <option value="late">สายทั้งหมด</option>
+            <option value="absent">ขาดทั้งหมด</option>
+            <option value="leave">ลาทั้งหมด</option>
+          </select></label>
+          <label>วิธีบันทึก<select value={bulkMode} onChange={(e) => setBulkMode(e.target.value)}>
+            <option value="missing">เติมเฉพาะช่องว่าง</option>
+            <option value="overwrite">เขียนทับทั้งห้อง</option>
+          </select></label>
+          <button className="primary" type="submit"><CheckCircle2 size={16} /> บันทึกย้อนหลังทั้งห้อง</button>
+        </form>
         <AttendanceLedger students={students} dates={monthDates} rows={data.attendance} setAttendance={setAttendance} />
       </section>
     </>

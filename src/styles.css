@@ -122,6 +122,9 @@ header p { margin: 2px 0 0; color: #65738b; }
 .ledger-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; margin-bottom: 12px; }
 .ledger-head h2, .ledger-head p { margin: 0; }
 .ledger-head p { color: #65738b; }
+.bulk-attendance { display: grid; grid-template-columns: 150px 150px 190px auto; gap: 8px; align-items: end; margin-bottom: 12px; padding: 10px; border: 1px solid #dde6f2; border-radius: 12px; background: #f8fafc; }
+.bulk-attendance label { display: grid; gap: 5px; color: #65738b; font-size: 12px; }
+.bulk-attendance input, .bulk-attendance select { width: 100%; border: 1px solid #dde6f2; border-radius: 10px; padding: 10px; background: white; color: #172033; }
 .ledger-scroll { overflow: auto; border: 1px solid #dde6f2; border-radius: 14px; max-height: 72vh; }
 .attendance-ledger { width: max-content; min-width: 100%; border-collapse: separate; border-spacing: 0; background: white; }
 .attendance-ledger th, .attendance-ledger td { border-right: 1px solid #dde6f2; border-bottom: 1px solid #dde6f2; padding: 6px; text-align: center; min-width: 42px; }
@@ -448,6 +451,22 @@ nav button:hover,
   color: rgba(226, 232, 240, .78);
 }
 
+.bulk-attendance {
+  background: rgba(15, 23, 42, .34);
+  border-color: rgba(226, 232, 240, .13);
+}
+
+.bulk-attendance label {
+  color: rgba(226, 232, 240, .78);
+}
+
+.bulk-attendance input,
+.bulk-attendance select {
+  background: rgba(15, 23, 42, .34);
+  border-color: rgba(226, 232, 240, .13);
+  color: #f8fafc;
+}
+
 .ledger-scroll {
   border-color: rgba(226, 232, 240, .13);
 }
@@ -603,7 +622,7 @@ nav button:hover,
   main { padding: 14px; }
   header { align-items: flex-start; }
   header h1 { font-size: 21px; }
-  .metrics, .grid-2, .today-grid, .student-layout, .profile-grid, .profile-edit, .contact-form, .report-student, .report-grid, .signature-row { grid-template-columns: 1fr; }
+  .metrics, .grid-2, .today-grid, .bulk-attendance, .student-layout, .profile-grid, .profile-edit, .contact-form, .report-student, .report-grid, .signature-row { grid-template-columns: 1fr; }
   .profile-head { align-items: flex-start; }
   .action-panel, .today-hero { align-items: stretch; flex-direction: column; }
 }
