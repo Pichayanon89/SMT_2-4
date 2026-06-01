@@ -354,16 +354,16 @@ function App() {
     }
   }
 
-  async function setAttendance(student, status) {
-    const existing = data.attendance.find((row) => row.date === TODAY() && row.student_id === student.student_id);
+  async function setAttendance(student, status, date = TODAY()) {
+    const existing = data.attendance.find((row) => row.date === date && row.student_id === student.student_id);
     const recorder = profile?.display_name || session?.user?.email || "";
     if (existing && existing.status !== status && existing.updated_by && existing.updated_by !== recorder) {
-      const ok = window.confirm(`${existing.updated_by} เช็คไว้แล้ว (${statusText(existing.status)}) ต้องการแก้เป็น "${statusText(status)}" โดย ${recorder} ใช่ไหม?`);
+      const ok = window.confirm(`${existing.updated_by} เช็ควันที่ ${dateText(date)} ไว้แล้ว (${statusText(existing.status)}) ต้องการแก้เป็น "${statusText(status)}" โดย ${recorder} ใช่ไหม?`);
       if (!ok) return;
     }
     const row = {
       classroom_id: CLASS_ID,
-      date: TODAY(),
+      date,
       student_id: student.student_id,
       status,
       updated_at: new Date().toISOString(),
@@ -836,7 +836,9 @@ function Dashboard({ dashboard, data, students, teacherName, setTab, setSelected
 }
 
 function Attendance({ students, data, setAttendance, markAllPresent }) {
+  const [monthKey, setMonthKey] = useState(CURRENT_MONTH());
   const todayRows = Object.fromEntries(data.attendance.filter((row) => row.date === TODAY()).map((row) => [row.student_id, row]));
+  const monthDates = useMemo(() => datesInMonth(monthKey), [monthKey]);
   return (
     <>
       <section className="panel action-panel">
@@ -863,7 +865,80 @@ function Attendance({ students, data, setAttendance, markAllPresent }) {
           );
         })}
       </section>
+      <section className="panel attendance-ledger-panel">
+        <div className="ledger-head">
+          <div>
+            <h2>ตารางเช็คชื่อแบบ ปพ.5</h2>
+            <p>เห็นภาพรวมทั้งห้องรายเดือน และแก้ไขสถานะรายวันได้จากช่องตาราง</p>
+          </div>
+          <label className="month-control">เลือกเดือน<input type="month" value={monthKey} onChange={(e) => setMonthKey(e.target.value || CURRENT_MONTH())} /></label>
+        </div>
+        <AttendanceLedger students={students} dates={monthDates} rows={data.attendance} setAttendance={setAttendance} />
+      </section>
     </>
+  );
+}
+
+function AttendanceLedger({ students, dates, rows, setAttendance }) {
+  const rowsByStudentDate = useMemo(() => {
+    const map = new Map();
+    rows.forEach((row) => map.set(`${row.student_id}|${row.date}`, row));
+    return map;
+  }, [rows]);
+
+  return (
+    <div className="ledger-scroll">
+      <table className="attendance-ledger">
+        <thead>
+          <tr>
+            <th className="sticky-col seq-col">เลขที่</th>
+            <th className="sticky-col name-col">ชื่อ - สกุล</th>
+            {dates.map((date) => <th key={date} className={cx(isWeekend(date) && "muted-day")}><span>{dayOfMonth(date)}</span><small>{weekdayShort(date)}</small></th>)}
+            <th>มา</th>
+            <th>สาย</th>
+            <th>ขาด</th>
+            <th>ลา</th>
+          </tr>
+        </thead>
+        <tbody>
+          {students.map((student) => {
+            const summary = { present: 0, late: 0, absent: 0, leave: 0 };
+            dates.forEach((date) => {
+              const status = rowsByStudentDate.get(`${student.student_id}|${date}`)?.status;
+              if (summary[status] !== undefined) summary[status] += 1;
+            });
+            return (
+              <tr key={student.student_id}>
+                <td className="sticky-col seq-col">{student.seq}</td>
+                <td className="sticky-col name-col"><strong>{student.full_name}</strong><small>{student.student_code || "-"}</small></td>
+                {dates.map((date) => {
+                  const row = rowsByStudentDate.get(`${student.student_id}|${date}`);
+                  return (
+                    <td key={date} className={cx("ledger-cell", row?.status, isWeekend(date) && "muted-day")}>
+                      <select
+                        aria-label={`${student.full_name} ${date}`}
+                        value={row?.status || ""}
+                        onChange={(event) => event.target.value && setAttendance(student, event.target.value, date)}
+                      >
+                        <option value="">-</option>
+                        <option value="present">มา</option>
+                        <option value="late">ส</option>
+                        <option value="absent">ข</option>
+                        <option value="leave">ล</option>
+                      </select>
+                    </td>
+                  );
+                })}
+                <td className="summary-ok">{summary.present}</td>
+                <td className="summary-warn">{summary.late}</td>
+                <td className="summary-danger">{summary.absent}</td>
+                <td className="summary-info">{summary.leave}</td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
   );
 }
 
@@ -1596,6 +1671,33 @@ function localDateKey(dateValue = new Date()) {
   const month = String(date.getMonth() + 1).padStart(2, "0");
   const day = String(date.getDate()).padStart(2, "0");
   return `${year}-${month}-${day}`;
+}
+
+function datesInMonth(monthKey) {
+  const [year, month] = String(monthKey || CURRENT_MONTH()).split("-").map(Number);
+  if (!year || !month) return [];
+  const date = new Date(year, month - 1, 1);
+  const dates = [];
+  while (date.getMonth() === month - 1) {
+    dates.push(localDateKey(date));
+    date.setDate(date.getDate() + 1);
+  }
+  return dates;
+}
+
+function dayOfMonth(dateValue) {
+  return Number(String(dateValue).slice(-2));
+}
+
+function weekdayShort(dateValue) {
+  const [year, month, day] = String(dateValue).split("-").map(Number);
+  return new Date(year, month - 1, day).toLocaleDateString("th-TH", { weekday: "short" });
+}
+
+function isWeekend(dateValue) {
+  const [year, month, day] = String(dateValue).split("-").map(Number);
+  const weekday = new Date(year, month - 1, day).getDay();
+  return weekday === 0 || weekday === 6;
 }
 
 function dayKeyForDate(dateValue) {

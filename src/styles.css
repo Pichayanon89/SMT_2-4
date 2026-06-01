@@ -118,6 +118,30 @@ header p { margin: 2px 0 0; color: #65738b; }
 .status-grid .active.late { background: #fef3c7; color: #92400e; border-color: #facc15; }
 .status-grid .active.absent { background: #fee2e2; color: #991b1b; border-color: #fca5a5; }
 .status-grid .active.leave { background: #e0f2fe; color: #075985; border-color: #7dd3fc; }
+.attendance-ledger-panel { margin-top: 14px; }
+.ledger-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; margin-bottom: 12px; }
+.ledger-head h2, .ledger-head p { margin: 0; }
+.ledger-head p { color: #65738b; }
+.ledger-scroll { overflow: auto; border: 1px solid #dde6f2; border-radius: 14px; max-height: 72vh; }
+.attendance-ledger { width: max-content; min-width: 100%; border-collapse: separate; border-spacing: 0; background: white; }
+.attendance-ledger th, .attendance-ledger td { border-right: 1px solid #dde6f2; border-bottom: 1px solid #dde6f2; padding: 6px; text-align: center; min-width: 42px; }
+.attendance-ledger th { position: sticky; top: 0; z-index: 3; background: #eaf1fb; color: #17345f; font-size: 12px; }
+.attendance-ledger th span, .attendance-ledger th small, .name-col small { display: block; }
+.attendance-ledger th small, .name-col small { color: #65738b; font-size: 11px; }
+.attendance-ledger .sticky-col { position: sticky; left: 0; z-index: 2; background: #fff; }
+.attendance-ledger th.sticky-col { z-index: 4; background: #dce9fb; }
+.attendance-ledger .seq-col { min-width: 52px; width: 52px; }
+.attendance-ledger .name-col { left: 52px; min-width: 230px; width: 230px; text-align: left; }
+.ledger-cell select { width: 34px; min-height: 30px; border: 0; border-radius: 8px; text-align: center; text-align-last: center; font-weight: 700; background: rgba(255,255,255,.82); color: #111827; }
+.ledger-cell.present { background: #dcfce7; color: #166534; }
+.ledger-cell.late { background: #fef3c7; color: #92400e; }
+.ledger-cell.absent { background: #fee2e2; color: #991b1b; }
+.ledger-cell.leave { background: #e0f2fe; color: #075985; }
+.muted-day { opacity: .62; }
+.summary-ok { color: #166534; font-weight: 700; }
+.summary-warn { color: #92400e; font-weight: 700; }
+.summary-danger { color: #991b1b; font-weight: 700; }
+.summary-info { color: #075985; font-weight: 700; }
 
 .row-btn {
   width: 100%; border: 1px solid #dde6f2; background: #fff; border-radius: 12px; padding: 10px; text-align: left;
@@ -382,6 +406,9 @@ nav button:hover,
 .next-lesson,
 .schedule-item,
 .todo-item,
+.attendance-ledger,
+.attendance-ledger .sticky-col,
+.ledger-scroll,
 .search,
 .profile-edit,
 .contact-form,
@@ -415,6 +442,34 @@ nav button:hover,
 .row-btn.active,
 .todo-item:hover {
   background: rgba(255, 255, 255, .1);
+}
+
+.ledger-head p {
+  color: rgba(226, 232, 240, .78);
+}
+
+.ledger-scroll {
+  border-color: rgba(226, 232, 240, .13);
+}
+
+.attendance-ledger th {
+  background: rgba(49, 37, 75, .96);
+  color: #f8e7ff;
+}
+
+.attendance-ledger .sticky-col,
+.attendance-ledger th.sticky-col {
+  background: rgba(26, 30, 52, .98);
+}
+
+.attendance-ledger th,
+.attendance-ledger td {
+  border-color: rgba(226, 232, 240, .12);
+}
+
+.attendance-ledger th small,
+.name-col small {
+  color: rgba(226, 232, 240, .7);
 }
 
 .row-btn.active {
@@ -557,6 +612,7 @@ nav button:hover,
   nav { grid-template-columns: repeat(4, 1fr); }
   .status-grid { grid-template-columns: repeat(2, 1fr); }
   .schedule-item { grid-template-columns: 1fr; }
+  .attendance-ledger .name-col { min-width: 190px; width: 190px; }
   .form-row { grid-template-columns: 1fr; }
   .metric strong { font-size: 24px; }
   .profile-head { display: grid; }
