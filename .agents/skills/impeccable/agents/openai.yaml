@@ -1,0 +1,7 @@
+interface:
+  display_name: "Impeccable Web QA"
+  short_description: "Production QA for Teacher Cockpit"
+  default_prompt: "Use $impeccable to review, improve, test, and prepare this Teacher Cockpit app for real classroom use."
+
+policy:
+  allow_implicit_invocation: true
