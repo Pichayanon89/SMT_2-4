@@ -125,6 +125,7 @@ header p { margin: 2px 0 0; color: #65738b; }
 .bulk-attendance { display: grid; grid-template-columns: 150px 150px 190px auto; gap: 8px; align-items: end; margin-bottom: 12px; padding: 10px; border: 1px solid #dde6f2; border-radius: 12px; background: #f8fafc; }
 .bulk-attendance label { display: grid; gap: 5px; color: #65738b; font-size: 12px; }
 .bulk-attendance input, .bulk-attendance select { width: 100%; border: 1px solid #dde6f2; border-radius: 10px; padding: 10px; background: white; color: #172033; }
+.attendance-summary-grid { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 8px; margin-bottom: 12px; }
 .ledger-scroll { overflow: auto; border: 1px solid #dde6f2; border-radius: 14px; max-height: 72vh; }
 .attendance-ledger { width: max-content; min-width: 100%; border-collapse: separate; border-spacing: 0; background: white; }
 .attendance-ledger th, .attendance-ledger td { border-right: 1px solid #dde6f2; border-bottom: 1px solid #dde6f2; padding: 6px; text-align: center; min-width: 42px; }
@@ -145,6 +146,17 @@ header p { margin: 2px 0 0; color: #65738b; }
 .summary-warn { color: #92400e; font-weight: 700; }
 .summary-danger { color: #991b1b; font-weight: 700; }
 .summary-info { color: #075985; font-weight: 700; }
+.daily-summary { margin-top: 14px; display: grid; gap: 10px; }
+.daily-summary-head { display: flex; justify-content: space-between; gap: 12px; align-items: end; }
+.daily-summary-head h3, .daily-summary-head p { margin: 0; }
+.daily-summary-head p { color: #65738b; font-size: 13px; }
+.daily-summary-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 8px; }
+.daily-summary-card { border: 1px solid #dde6f2; border-radius: 12px; padding: 10px; background: #f8fafc; display: grid; gap: 6px; }
+.daily-summary-card.incomplete { border-color: #facc15; }
+.daily-summary-card > div { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.daily-summary-card strong { font-size: 20px; }
+.daily-summary-card span, .daily-summary-card small { color: #65738b; }
+.daily-summary-card p { margin: 0; display: flex; flex-wrap: wrap; gap: 8px; font-size: 12px; }
 
 .row-btn {
   width: 100%; border: 1px solid #dde6f2; background: #fff; border-radius: 12px; padding: 10px; text-align: left;
@@ -467,6 +479,21 @@ nav button:hover,
   color: #f8fafc;
 }
 
+.daily-summary-head p,
+.daily-summary-card span,
+.daily-summary-card small {
+  color: rgba(226, 232, 240, .78);
+}
+
+.daily-summary-card {
+  background: rgba(15, 23, 42, .34);
+  border-color: rgba(226, 232, 240, .13);
+}
+
+.daily-summary-card.incomplete {
+  border-color: rgba(250, 204, 21, .55);
+}
+
 .ledger-scroll {
   border-color: rgba(226, 232, 240, .13);
 }
@@ -622,7 +649,7 @@ nav button:hover,
   main { padding: 14px; }
   header { align-items: flex-start; }
   header h1 { font-size: 21px; }
-  .metrics, .grid-2, .today-grid, .bulk-attendance, .student-layout, .profile-grid, .profile-edit, .contact-form, .report-student, .report-grid, .signature-row { grid-template-columns: 1fr; }
+  .metrics, .grid-2, .today-grid, .bulk-attendance, .attendance-summary-grid, .student-layout, .profile-grid, .profile-edit, .contact-form, .report-student, .report-grid, .signature-row { grid-template-columns: 1fr; }
   .profile-head { align-items: flex-start; }
   .action-panel, .today-hero { align-items: stretch; flex-direction: column; }
 }

@@ -927,6 +927,7 @@ function AttendanceBook({ students, data, setAttendance, markClassAttendance, lo
   const [bulkStatus, setBulkStatus] = useState("present");
   const [bulkMode, setBulkMode] = useState("missing");
   const monthDates = useMemo(() => datesInMonth(monthKey), [monthKey]);
+  const monthSummary = useMemo(() => buildAttendanceMonthSummary(students, monthDates, data.attendance), [students, monthDates, data.attendance]);
 
   useEffect(() => {
     loadAttendanceMonth(monthKey);
@@ -961,9 +962,52 @@ function AttendanceBook({ students, data, setAttendance, markClassAttendance, lo
           </select></label>
           <button className="primary" type="submit"><CheckCircle2 size={16} /> บันทึกย้อนหลังทั้งห้อง</button>
         </form>
+        <AttendanceMonthSummary summary={monthSummary} />
         <AttendanceLedger students={students} dates={monthDates} rows={data.attendance} setAttendance={setAttendance} />
+        <AttendanceDailySummary days={monthSummary.days} />
       </section>
     </>
+  );
+}
+
+function AttendanceMonthSummary({ summary }) {
+  return (
+    <div className="attendance-summary-grid">
+      <Info label="มา รวมทั้งเดือน" value={summary.present} />
+      <Info label="สาย รวมทั้งเดือน" value={summary.late} />
+      <Info label="ขาด รวมทั้งเดือน" value={summary.absent} />
+      <Info label="ลา รวมทั้งเดือน" value={summary.leave} />
+      <Info label="ยังไม่บันทึก" value={summary.missing} />
+      <Info label="วันที่เช็คไม่ครบ" value={summary.incompleteDays} />
+    </div>
+  );
+}
+
+function AttendanceDailySummary({ days }) {
+  return (
+    <section className="daily-summary">
+      <div className="daily-summary-head">
+        <h3>สรุปรายวัน</h3>
+        <p>ดูเร็วว่าวันไหนเช็คชื่อครบ และวันไหนมีขาด/ลา/สาย</p>
+      </div>
+      <div className="daily-summary-list">
+        {days.map((day) => (
+          <article className={cx("daily-summary-card", day.missing && "incomplete")} key={day.date}>
+            <div>
+              <strong>{dayOfMonth(day.date)}</strong>
+              <span>{weekdayShort(day.date)}</span>
+            </div>
+            <p>
+              <b className="summary-ok">มา {day.present}</b>
+              <b className="summary-warn">สาย {day.late}</b>
+              <b className="summary-danger">ขาด {day.absent}</b>
+              <b className="summary-info">ลา {day.leave}</b>
+            </p>
+            <small>{day.missing ? `ยังว่าง ${day.missing}` : "ครบ"}</small>
+          </article>
+        ))}
+      </div>
+    </section>
   );
 }
 
@@ -1771,6 +1815,28 @@ function datesInMonth(monthKey) {
     date.setDate(date.getDate() + 1);
   }
   return dates;
+}
+
+function buildAttendanceMonthSummary(students, dates, rows) {
+  const rowsByStudentDate = new Map();
+  rows.forEach((row) => rowsByStudentDate.set(`${row.student_id}|${row.date}`, row));
+  const total = { present: 0, late: 0, absent: 0, leave: 0, missing: 0, incompleteDays: 0 };
+  const days = dates.map((date) => {
+    const day = { date, present: 0, late: 0, absent: 0, leave: 0, missing: 0 };
+    students.forEach((student) => {
+      const status = rowsByStudentDate.get(`${student.student_id}|${date}`)?.status;
+      if (day[status] !== undefined) {
+        day[status] += 1;
+        total[status] += 1;
+      } else {
+        day.missing += 1;
+        total.missing += 1;
+      }
+    });
+    if (day.missing) total.incompleteDays += 1;
+    return day;
+  });
+  return { ...total, days };
 }
 
 function dayOfMonth(dateValue) {
