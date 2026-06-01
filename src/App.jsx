@@ -16,6 +16,7 @@ import {
   RefreshCw,
   Search,
   ShieldCheck,
+  Table2,
   UserRound,
   Users,
 } from "lucide-react";
@@ -142,6 +143,7 @@ const navItems = [
   ["today", CalendarDays, "วันนี้"],
   ["dashboard", BarChart3, "แดชบอร์ด"],
   ["attendance", ClipboardCheck, "เช็คชื่อ"],
+  ["attendanceBook", Table2, "ปพ.5"],
   ["students", Users, "นักเรียน"],
   ["reports", FileText, "รายงาน"],
   ["work", BookOpenCheck, "งาน/พฤติกรรม"],
@@ -620,6 +622,7 @@ function App() {
         {tab === "today" && <Today data={data} students={students} dashboard={dashboard} setTab={setTab} setSelectedId={setSelectedId} />}
         {tab === "dashboard" && <Dashboard dashboard={dashboard} data={data} students={students} teacherName={profile?.display_name || session.user.email} setTab={setTab} setSelectedId={setSelectedId} />}
         {tab === "attendance" && <Attendance students={students} data={data} setAttendance={setAttendance} markAllPresent={markAllPresent} />}
+        {tab === "attendanceBook" && <AttendanceBook students={students} data={data} setAttendance={setAttendance} />}
         {tab === "students" && (
           <Students
             students={filteredStudents}
@@ -836,9 +839,7 @@ function Dashboard({ dashboard, data, students, teacherName, setTab, setSelected
 }
 
 function Attendance({ students, data, setAttendance, markAllPresent }) {
-  const [monthKey, setMonthKey] = useState(CURRENT_MONTH());
   const todayRows = Object.fromEntries(data.attendance.filter((row) => row.date === TODAY()).map((row) => [row.student_id, row]));
-  const monthDates = useMemo(() => datesInMonth(monthKey), [monthKey]);
   return (
     <>
       <section className="panel action-panel">
@@ -865,6 +866,15 @@ function Attendance({ students, data, setAttendance, markAllPresent }) {
           );
         })}
       </section>
+    </>
+  );
+}
+
+function AttendanceBook({ students, data, setAttendance }) {
+  const [monthKey, setMonthKey] = useState(CURRENT_MONTH());
+  const monthDates = useMemo(() => datesInMonth(monthKey), [monthKey]);
+  return (
+    <>
       <section className="panel attendance-ledger-panel">
         <div className="ledger-head">
           <div>
