@@ -167,6 +167,45 @@ header p { margin: 2px 0 0; color: #65738b; }
 .risk.focus { background: #fee2e2; color: #991b1b; }
 
 .student-layout { display: grid; grid-template-columns: 360px 1fr; gap: 14px; }
+.student-directory { display: grid; grid-template-columns: minmax(300px, 560px); gap: 14px; }
+.student-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: grid;
+  place-items: center;
+  padding: 18px;
+  background: rgba(12, 20, 34, 0.62);
+  backdrop-filter: blur(6px);
+}
+.student-modal {
+  width: min(980px, 100%);
+  max-height: min(90vh, 920px);
+  display: grid;
+  grid-template-rows: auto 1fr;
+  overflow: hidden;
+  border-radius: 16px;
+  background: #fff;
+  box-shadow: 0 28px 80px rgba(15, 23, 42, 0.28);
+}
+.student-modal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  color: #fff;
+  background: linear-gradient(135deg, #174f96, #1d72e8);
+}
+.student-modal-head strong { display: block; font-size: 16px; }
+.student-modal-head small { display: block; margin-top: 2px; color: rgba(255, 255, 255, 0.82); }
+.student-modal-head .ghost {
+  color: #fff;
+  border-color: rgba(255, 255, 255, 0.38);
+  background: rgba(255, 255, 255, 0.12);
+}
+.student-modal-body { overflow: auto; padding: 16px; }
+.icon-btn { width: 40px; height: 40px; padding: 0; justify-content: center; flex: 0 0 auto; }
 .search { display: flex; align-items: center; gap: 8px; padding: 9px 10px; border: 1px solid #dde6f2; border-radius: 10px; margin-bottom: 12px; }
 .search input { border: 0; outline: 0; width: 100%; }
 .profile { display: grid; gap: 12px; }
@@ -550,6 +589,16 @@ nav button:hover,
   color: #fdba74;
 }
 
+.student-modal {
+  background: linear-gradient(135deg, rgba(62, 43, 91, .94), rgba(20, 54, 75, .92));
+  border: 1px solid rgba(226, 232, 240, .2);
+  box-shadow: 0 28px 80px rgba(0, 0, 0, .44), inset 0 1px 0 rgba(255, 255, 255, .08);
+}
+
+.student-modal-head {
+  background: linear-gradient(135deg, #2563eb, #06b6d4);
+}
+
 .status-grid button {
   color: #cbd5e1;
   background: rgba(8, 29, 43, .72);
@@ -652,6 +701,10 @@ nav button:hover,
   .metrics, .grid-2, .today-grid, .bulk-attendance, .attendance-summary-grid, .student-layout, .profile-grid, .profile-edit, .contact-form, .report-student, .report-grid, .signature-row { grid-template-columns: 1fr; }
   .profile-head { align-items: flex-start; }
   .action-panel, .today-hero { align-items: stretch; flex-direction: column; }
+  .student-directory { grid-template-columns: 1fr; }
+  .student-modal-backdrop { padding: 10px; align-items: start; }
+  .student-modal { max-height: calc(100vh - 20px); border-radius: 14px; }
+  .student-modal-body { padding: 12px; }
 }
 
 @media (max-width: 520px) {
@@ -663,6 +716,8 @@ nav button:hover,
   .metric strong { font-size: 24px; }
   .profile-head { display: grid; }
   .profile-photo, .profile-avatar { width: 96px; height: 96px; border-radius: 16px; }
+  .student-modal-head { padding: 10px 12px; }
+  .student-modal-head strong { font-size: 15px; }
 }
 
 @media print {

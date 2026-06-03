@@ -19,6 +19,7 @@ import {
   Table2,
   UserRound,
   Users,
+  X,
 } from "lucide-react";
 import studentSeed from "./data/students_p4_2_35.json";
 import { getSupabaseClient } from "./supabaseClient";
@@ -1077,6 +1078,7 @@ function AttendanceLedger({ students, dates, rows, setAttendance }) {
 function Students({ students, query, setQuery, selectedStudent, setSelectedId, photoUrl, uploadPhoto, updateStudentDetails, addParentContact, profile, addFollowUp }) {
   const [showCitizenIds, setShowCitizenIds] = useState(false);
   const [isEditingProfile, setIsEditingProfile] = useState(false);
+  const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [draft, setDraft] = useState({ nickname: "", health_note: "", phone: "", phone_2: "", phone_3: "" });
   const [contactDraft, setContactDraft] = useState({ date: TODAY(), method: "phone", topic: "", result: "", next_date: "" });
   const phoneText = selectedStudent ? [selectedStudent.phone, selectedStudent.phone_2, selectedStudent.phone_3].filter(Boolean).join(" / ") : "";
@@ -1119,19 +1121,37 @@ function Students({ students, query, setQuery, selectedStudent, setSelectedId, p
   }
 
   return (
-    <section className="student-layout">
+    <section className="student-directory">
       <Panel title="รายชื่อนักเรียน">
         <div className="search"><Search size={16} /><input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="ค้นหาเลขที่/ชื่อ" /></div>
         <div className="compact-list">
           {students.map((student) => (
-            <button key={student.student_id} className={cx("row-btn", selectedStudent?.student_id === student.student_id && "active")} onClick={() => setSelectedId(student.student_id)}>
+            <button
+              key={student.student_id}
+              className={cx("row-btn", selectedStudent?.student_id === student.student_id && "active")}
+              onClick={() => {
+                setSelectedId(student.student_id);
+                setIsProfileModalOpen(true);
+              }}
+            >
               <span className="seq">{student.seq}</span><div><strong>{student.full_name}</strong><small>{student.student_code || "-"}</small></div>
             </button>
           ))}
         </div>
       </Panel>
-      <Panel title="โปรไฟล์รายบุคคล">
-        {selectedStudent ? (
+      {selectedStudent && isProfileModalOpen && (
+        <div className="student-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="student-profile-title" onClick={() => setIsProfileModalOpen(false)}>
+          <div className="student-modal" onClick={(event) => event.stopPropagation()}>
+            <div className="student-modal-head">
+              <div>
+                <strong id="student-profile-title">ประวัติและข้อมูลนักเรียน</strong>
+                <small>{selectedStudent.full_name} · เลขที่ {selectedStudent.seq}</small>
+              </div>
+              <button className="ghost icon-btn" type="button" aria-label="ปิดหน้าต่างข้อมูลนักเรียน" onClick={() => setIsProfileModalOpen(false)}>
+                <X size={18} />
+              </button>
+            </div>
+            <div className="student-modal-body">
           <div className="profile">
             <div className="profile-head">
               {photoUrl ? <img className="profile-photo" src={photoUrl} alt={selectedStudent.full_name} /> : <div className="profile-avatar">{selectedStudent.display_name?.[0] || "น"}</div>}
@@ -1246,8 +1266,10 @@ function Students({ students, query, setQuery, selectedStudent, setSelectedId, p
             </div>
             <button className="secondary" onClick={() => addFollowUp(selectedStudent.student_id, profile.reasons[0] || "ติดตามรายบุคคล")}><Plus size={16} /> เพิ่มรายการติดตาม</button>
           </div>
-        ) : <Empty text="เลือกนักเรียน" />}
-      </Panel>
+            </div>
+          </div>
+        </div>
+      )}
     </section>
   );
 }
