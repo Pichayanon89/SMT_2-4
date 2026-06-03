@@ -136,6 +136,19 @@ header p { margin: 2px 0 0; color: #65738b; }
 .attendance-ledger th.sticky-col { z-index: 4; background: #dce9fb; }
 .attendance-ledger .seq-col { min-width: 52px; width: 52px; }
 .attendance-ledger .name-col { left: 52px; min-width: 230px; width: 230px; text-align: left; }
+.ledger-name-btn {
+  display: grid;
+  gap: 2px;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.ledger-name-btn:hover strong { text-decoration: underline; text-underline-offset: 3px; }
+.ledger-name-btn small { color: #65738b; }
 .ledger-cell select { width: 34px; min-height: 30px; border: 0; border-radius: 8px; text-align: center; text-align-last: center; font-weight: 700; background: rgba(255,255,255,.82); color: #111827; }
 .ledger-cell.present { background: #dcfce7; color: #166534; }
 .ledger-cell.late { background: #fef3c7; color: #92400e; }
@@ -157,6 +170,41 @@ header p { margin: 2px 0 0; color: #65738b; }
 .daily-summary-card strong { font-size: 20px; }
 .daily-summary-card span, .daily-summary-card small { color: #65738b; }
 .daily-summary-card p { margin: 0; display: flex; flex-wrap: wrap; gap: 8px; font-size: 12px; }
+.monthly-student-modal { width: min(760px, 100%); }
+.student-month-list { display: grid; gap: 8px; }
+.student-month-row {
+  display: grid;
+  grid-template-columns: 1fr 130px;
+  align-items: center;
+  gap: 10px;
+  padding: 10px;
+  border: 1px solid #dde6f2;
+  border-radius: 12px;
+  background: #f8fafc;
+}
+.student-month-row > span { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.student-month-row > span > strong {
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border-radius: 10px;
+  background: #eaf1fb;
+  color: #17345f;
+  flex: 0 0 auto;
+}
+.student-month-row small { color: #65738b; }
+.student-month-row select {
+  width: 100%;
+  border: 1px solid #dde6f2;
+  border-radius: 10px;
+  padding: 9px 10px;
+  background: #fff;
+}
+.student-month-row.present { border-color: #86efac; background: #ecfdf5; }
+.student-month-row.late { border-color: #facc15; background: #fffbeb; }
+.student-month-row.absent { border-color: #fda4af; background: #fff1f2; }
+.student-month-row.leave { border-color: #93c5fd; background: #eff6ff; }
 
 .row-btn {
   width: 100%; border: 1px solid #dde6f2; background: #fff; border-radius: 12px; padding: 10px; text-align: left;
@@ -463,6 +511,8 @@ nav button:hover,
 .attendance-ledger,
 .attendance-ledger .sticky-col,
 .ledger-scroll,
+.student-month-row,
+.student-month-row select,
 .search,
 .profile-edit,
 .contact-form,
@@ -556,6 +606,21 @@ nav button:hover,
 .name-col small {
   color: rgba(226, 232, 240, .7);
 }
+
+.ledger-name-btn small,
+.student-month-row small {
+  color: rgba(226, 232, 240, .7);
+}
+
+.student-month-row > span > strong {
+  background: rgba(124, 58, 237, .24);
+  color: #d9b6ff;
+}
+
+.student-month-row.present { border-color: rgba(52, 211, 153, .42); background: rgba(16, 185, 129, .12); }
+.student-month-row.late { border-color: rgba(251, 191, 36, .42); background: rgba(245, 158, 11, .12); }
+.student-month-row.absent { border-color: rgba(251, 113, 133, .42); background: rgba(244, 63, 94, .12); }
+.student-month-row.leave { border-color: rgba(96, 165, 250, .42); background: rgba(59, 130, 246, .12); }
 
 .row-btn.active {
   outline: 2px solid rgba(216, 180, 254, .65);
@@ -718,6 +783,7 @@ nav button:hover,
   .profile-photo, .profile-avatar { width: 96px; height: 96px; border-radius: 16px; }
   .student-modal-head { padding: 10px 12px; }
   .student-modal-head strong { font-size: 15px; }
+  .student-month-row { grid-template-columns: 1fr; }
 }
 
 @media print {

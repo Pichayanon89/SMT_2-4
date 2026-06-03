@@ -927,8 +927,10 @@ function AttendanceBook({ students, data, setAttendance, markClassAttendance, lo
   const [bulkDate, setBulkDate] = useState(TODAY());
   const [bulkStatus, setBulkStatus] = useState("present");
   const [bulkMode, setBulkMode] = useState("missing");
+  const [modalStudentId, setModalStudentId] = useState("");
   const monthDates = useMemo(() => datesInMonth(monthKey), [monthKey]);
   const monthSummary = useMemo(() => buildAttendanceMonthSummary(students, monthDates, data.attendance), [students, monthDates, data.attendance]);
+  const modalStudent = students.find((student) => student.student_id === modalStudentId);
 
   useEffect(() => {
     loadAttendanceMonth(monthKey);
@@ -964,9 +966,19 @@ function AttendanceBook({ students, data, setAttendance, markClassAttendance, lo
           <button className="primary" type="submit"><CheckCircle2 size={16} /> บันทึกย้อนหลังทั้งห้อง</button>
         </form>
         <AttendanceMonthSummary summary={monthSummary} />
-        <AttendanceLedger students={students} dates={monthDates} rows={data.attendance} setAttendance={setAttendance} />
+        <AttendanceLedger students={students} dates={monthDates} rows={data.attendance} setAttendance={setAttendance} openStudentMonth={setModalStudentId} />
         <AttendanceDailySummary days={monthSummary.days} />
       </section>
+      {modalStudent && (
+        <MonthlyStudentModal
+          student={modalStudent}
+          dates={monthDates}
+          rows={data.attendance}
+          monthKey={monthKey}
+          setAttendance={setAttendance}
+          onClose={() => setModalStudentId("")}
+        />
+      )}
     </>
   );
 }
@@ -1012,7 +1024,77 @@ function AttendanceDailySummary({ days }) {
   );
 }
 
-function AttendanceLedger({ students, dates, rows, setAttendance }) {
+function MonthlyStudentModal({ student, dates, rows, monthKey, setAttendance, onClose }) {
+  const rowsByDate = useMemo(() => {
+    const map = new Map();
+    rows.filter((row) => row.student_id === student.student_id).forEach((row) => map.set(row.date, row));
+    return map;
+  }, [rows, student.student_id]);
+  const summary = dates.reduce((acc, date) => {
+    const status = rowsByDate.get(date)?.status || "missing";
+    acc[status] = (acc[status] || 0) + 1;
+    return acc;
+  }, { present: 0, late: 0, absent: 0, leave: 0, missing: 0 });
+
+  return (
+    <div className="student-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="monthly-student-title" onClick={onClose}>
+      <div className="student-modal monthly-student-modal" onClick={(event) => event.stopPropagation()}>
+        <div className="student-modal-head">
+          <div>
+            <strong id="monthly-student-title">สรุปเช็คชื่อรายเดือน</strong>
+            <small>{student.full_name} · {monthLabel(monthKey)}</small>
+          </div>
+          <button className="ghost icon-btn" type="button" aria-label="ปิดหน้าต่างเช็คชื่อรายเดือน" onClick={onClose}>
+            <X size={18} />
+          </button>
+        </div>
+        <div className="student-modal-body">
+          <div className="profile">
+            <div className="profile-head compact">
+              <div>
+                <div className="nickname">{student.nickname || "ยังไม่ระบุชื่อเล่น"}</div>
+                <h2>{student.full_name}</h2>
+                <p>เลขที่ {student.seq} · เลขประจำตัว {student.student_code || "-"}</p>
+              </div>
+            </div>
+            <div className="attendance-summary-grid">
+              <Info label="มา" value={summary.present} />
+              <Info label="สาย" value={summary.late} />
+              <Info label="ขาด" value={summary.absent} />
+              <Info label="ลา" value={summary.leave} />
+              <Info label="ยังไม่บันทึก" value={summary.missing} />
+            </div>
+            <div className="student-month-list">
+              {dates.map((date) => {
+                const row = rowsByDate.get(date);
+                return (
+                  <label className={cx("student-month-row", row?.status, isWeekend(date) && "muted-day")} key={date}>
+                    <span>
+                      <strong>{dayOfMonth(date)}</strong>
+                      <small>{weekdayShort(date)} · {dateText(date)}</small>
+                    </span>
+                    <select
+                      value={row?.status || ""}
+                      onChange={(event) => event.target.value && setAttendance(student, event.target.value, date)}
+                    >
+                      <option value="">-</option>
+                      <option value="present">มา</option>
+                      <option value="late">สาย</option>
+                      <option value="absent">ขาด</option>
+                      <option value="leave">ลา</option>
+                    </select>
+                  </label>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function AttendanceLedger({ students, dates, rows, setAttendance, openStudentMonth }) {
   const rowsByStudentDate = useMemo(() => {
     const map = new Map();
     rows.forEach((row) => map.set(`${row.student_id}|${row.date}`, row));
@@ -1043,7 +1125,11 @@ function AttendanceLedger({ students, dates, rows, setAttendance }) {
             return (
               <tr key={student.student_id}>
                 <td className="sticky-col seq-col">{student.seq}</td>
-                <td className="sticky-col name-col"><strong>{student.full_name}</strong><small>{student.student_code || "-"}</small></td>
+                <td className="sticky-col name-col">
+                  <button className="ledger-name-btn" type="button" onClick={() => openStudentMonth?.(student.student_id)}>
+                    <strong>{student.full_name}</strong><small>{student.student_code || "-"}</small>
+                  </button>
+                </td>
                 {dates.map((date) => {
                   const row = rowsByStudentDate.get(`${student.student_id}|${date}`);
                   return (
