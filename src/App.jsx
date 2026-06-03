@@ -378,8 +378,13 @@ function App() {
   }
 
   async function markAllPresent() {
-    if (!window.confirm("เช็คชื่อเป็น 'มา' ทั้งหมดสำหรับวันนี้ใช่ไหม?")) return;
     const recorder = profile?.display_name || session?.user?.email || "";
+    const existingRows = data.attendance.filter((row) => row.date === TODAY());
+    const conflicts = existingRows.filter((row) => row.status !== "present" || (row.updated_by && row.updated_by !== recorder));
+    const warning = conflicts.length
+      ? `\n\nคำเตือน: วันนี้มีข้อมูลเดิม ${conflicts.length} รายการ เช่น ขาด/สาย/ลา หรือครูท่านอื่นบันทึกไว้แล้ว`
+      : "";
+    if (!window.confirm(`เช็คชื่อเป็น 'มา' ทั้งหมดสำหรับวันนี้ใช่ไหม?${warning}`)) return;
     const rows = students.map((student) => ({
       classroom_id: CLASS_ID,
       date: TODAY(),
@@ -936,6 +941,11 @@ function AttendanceBook({ students, data, setAttendance, markClassAttendance, lo
     loadAttendanceMonth(monthKey);
   }, [monthKey]);
 
+  async function setMonthAttendance(student, status, date) {
+    await setAttendance(student, status, date);
+    await loadAttendanceMonth(monthKey);
+  }
+
   function submitBulkAttendance(event) {
     event.preventDefault();
     markClassAttendance(bulkDate, bulkStatus, bulkMode);
@@ -966,7 +976,7 @@ function AttendanceBook({ students, data, setAttendance, markClassAttendance, lo
           <button className="primary" type="submit"><CheckCircle2 size={16} /> บันทึกย้อนหลังทั้งห้อง</button>
         </form>
         <AttendanceMonthSummary summary={monthSummary} />
-        <AttendanceLedger students={students} dates={monthDates} rows={data.attendance} setAttendance={setAttendance} openStudentMonth={setModalStudentId} />
+        <AttendanceLedger students={students} dates={monthDates} rows={data.attendance} setAttendance={setMonthAttendance} openStudentMonth={setModalStudentId} />
         <AttendanceDailySummary days={monthSummary.days} />
       </section>
       {modalStudent && (
@@ -975,7 +985,7 @@ function AttendanceBook({ students, data, setAttendance, markClassAttendance, lo
           dates={monthDates}
           rows={data.attendance}
           monthKey={monthKey}
-          setAttendance={setAttendance}
+          setAttendance={setMonthAttendance}
           onClose={() => setModalStudentId("")}
         />
       )}
