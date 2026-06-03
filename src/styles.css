@@ -723,8 +723,8 @@ nav button:hover,
 @media print {
   @page { size: A4; margin: 12mm; }
   body { background: white; }
-  aside, header, .notice, .metrics, .grid-2, .dashboard-print-panel, .report-page > .panel:first-child, .profile > :not(.profile-section), .profile-section:not(:has(.print-report)), .report-editor, .month-control { display: none !important; }
-  .app-shell, main, .student-layout, .report-page, .panel, .profile, .profile-grid { display: block; padding: 0; margin: 0; box-shadow: none; border: 0; width: 100%; }
+  aside, header, .notice, .metrics, .grid-2, .dashboard-print-panel, .report-page > .panel:first-child, .profile > :not(.profile-section), .profile-section:not(:has(.print-report)), .report-editor, .month-control, .student-modal-head { display: none !important; }
+  .app-shell, main, .student-layout, .student-directory, .report-page, .panel, .profile, .profile-grid, .student-modal-backdrop, .student-modal, .student-modal-body { display: block; padding: 0; margin: 0; box-shadow: none; border: 0; width: 100%; max-height: none; overflow: visible; background: white; position: static; }
   .dashboard-print-report { display: block; }
   .panel > h2 { display: none; }
   .print-skip { display: none !important; }
