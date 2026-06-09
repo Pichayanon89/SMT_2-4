@@ -357,6 +357,33 @@ header p { margin: 2px 0 0; color: #65738b; }
 .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .score-form { margin-top: 14px; padding-top: 14px; border-top: 1px solid #dde6f2; }
 .work-row { padding: 12px; display: grid; gap: 8px; margin-bottom: 8px; }
+.growth-form { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.growth-form .wide { grid-column: 1 / -1; }
+.growth-current {
+  display: grid;
+  gap: 6px;
+  margin-top: 12px;
+  padding: 12px;
+  border: 1px solid #dde6f2;
+  border-radius: 12px;
+  background: #f8fafc;
+}
+.growth-current p { margin: 0; color: #65738b; }
+.growth-row { grid-template-columns: 38px 1fr minmax(112px, auto); }
+.growth-badge {
+  justify-self: end;
+  border-radius: 999px;
+  padding: 6px 9px;
+  font-size: 12px;
+  white-space: nowrap;
+  background: #eaf1fb;
+  color: #17345f;
+}
+.growth-badge.normal { background: #dcfce7; color: #166534; }
+.growth-badge.under { background: #fef3c7; color: #92400e; }
+.growth-badge.watch { background: #ffedd5; color: #9a3412; }
+.growth-badge.focus { background: #fee2e2; color: #991b1b; }
+.growth-badge.missing { background: #e5e7eb; color: #4b5563; }
 .steps { margin: 0; padding-left: 22px; color: #34445d; }
 .panel-note { margin: 0 0 10px; color: #65738b; line-height: 1.5; }
 .csv-upload { width: 100%; margin-bottom: 10px; }
@@ -513,6 +540,7 @@ nav button:hover,
 .ledger-scroll,
 .student-month-row,
 .student-month-row select,
+.growth-current,
 .search,
 .profile-edit,
 .contact-form,
@@ -654,6 +682,16 @@ nav button:hover,
   color: #fdba74;
 }
 
+.growth-current p {
+  color: rgba(226, 232, 240, .78);
+}
+
+.growth-badge.normal { background: rgba(16, 185, 129, .18); color: #34d399; }
+.growth-badge.under { background: rgba(245, 158, 11, .2); color: #fbbf24; }
+.growth-badge.watch { background: rgba(249, 115, 22, .2); color: #fdba74; }
+.growth-badge.focus { background: rgba(244, 63, 94, .2); color: #fb7185; }
+.growth-badge.missing { background: rgba(148, 163, 184, .2); color: #cbd5e1; }
+
 .student-modal {
   background: linear-gradient(135deg, rgba(62, 43, 91, .94), rgba(20, 54, 75, .92));
   border: 1px solid rgba(226, 232, 240, .2);
@@ -763,7 +801,7 @@ nav button:hover,
   main { padding: 14px; }
   header { align-items: flex-start; }
   header h1 { font-size: 21px; }
-  .metrics, .grid-2, .today-grid, .bulk-attendance, .attendance-summary-grid, .student-layout, .profile-grid, .profile-edit, .contact-form, .report-student, .report-grid, .signature-row { grid-template-columns: 1fr; }
+  .metrics, .grid-2, .today-grid, .bulk-attendance, .attendance-summary-grid, .student-layout, .profile-grid, .profile-edit, .growth-form, .contact-form, .report-student, .report-grid, .signature-row { grid-template-columns: 1fr; }
   .profile-head { align-items: flex-start; }
   .action-panel, .today-hero { align-items: stretch; flex-direction: column; }
   .student-directory { grid-template-columns: 1fr; }
@@ -784,6 +822,8 @@ nav button:hover,
   .student-modal-head { padding: 10px 12px; }
   .student-modal-head strong { font-size: 15px; }
   .student-month-row { grid-template-columns: 1fr; }
+  .growth-row { grid-template-columns: 38px 1fr; }
+  .growth-row .growth-badge { grid-column: 2; justify-self: start; }
 }
 
 @media print {

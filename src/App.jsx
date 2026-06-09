@@ -14,6 +14,7 @@ import {
   Plus,
   Printer,
   RefreshCw,
+  Ruler,
   Search,
   ShieldCheck,
   Table2,
@@ -146,6 +147,7 @@ const navItems = [
   ["attendance", ClipboardCheck, "เช็คชื่อรายวัน"],
   ["attendanceBook", Table2, "เช็คชื่อรายเดือน"],
   ["students", Users, "นักเรียน"],
+  ["growth", Ruler, "น้ำหนัก/ส่วนสูง"],
   ["reports", FileText, "รายงาน"],
   ["work", BookOpenCheck, "งาน/พฤติกรรม"],
   ["setup", Database, "ตั้งค่า"],
@@ -286,6 +288,7 @@ function App() {
         followRes,
         contactRes,
         scoreRes,
+        growthRes,
       ] = await Promise.all([
         supabase.from("profiles").select("id,display_name,role").eq("id", userId).single(),
         supabase.from("classroom_teachers").select("teacher_name,teacher_order").eq("classroom_id", CLASS_ID).eq("active", true).order("teacher_order"),
@@ -297,8 +300,9 @@ function App() {
         supabase.from("follow_ups").select("*").eq("classroom_id", CLASS_ID).order("date", { ascending: false }),
         supabase.from("parent_contacts").select("*").eq("classroom_id", CLASS_ID).order("date", { ascending: false }),
         supabase.from("scores").select("*").eq("classroom_id", CLASS_ID).order("date", { ascending: false }),
+        supabase.from("growth_records").select("*").eq("classroom_id", CLASS_ID).order("date", { ascending: false }),
       ]);
-      [profileRes, teacherRes, studentsRes, attendanceRes, homeworkRes, homeworkStatusRes, behaviorRes, followRes, contactRes, scoreRes].forEach((res) => {
+      [profileRes, teacherRes, studentsRes, attendanceRes, homeworkRes, homeworkStatusRes, behaviorRes, followRes, contactRes, scoreRes, growthRes].forEach((res) => {
         if (res.error) throw res.error;
       });
       setProfile(profileRes.data);
@@ -312,6 +316,7 @@ function App() {
         followUps: followRes.data || [],
         parentContacts: contactRes.data || [],
         scores: scoreRes.data || [],
+        growthRecords: growthRes.data || [],
       });
       if (!selectedId && studentsRes.data?.[0]) setSelectedId(studentsRes.data[0].student_id);
     } catch (error) {
@@ -564,6 +569,30 @@ function App() {
     await loadAll();
   }
 
+  async function saveGrowthRecord(studentId, date, weightKg, heightCm, note = "") {
+    const student = students.find((row) => row.student_id === studentId);
+    if (!student) return setMessage("ไม่พบนักเรียน");
+    const weight = Number(weightKg);
+    const height = Number(heightCm);
+    if (!date || !weight || !height) return setMessage("กรอกวันที่ น้ำหนัก และส่วนสูงให้ครบ");
+    if (weight <= 0 || height <= 0) return setMessage("น้ำหนักและส่วนสูงต้องมากกว่า 0");
+    const recorder = profile?.display_name || session?.user?.email || "";
+    const row = {
+      classroom_id: CLASS_ID,
+      date,
+      student_id: student.student_id,
+      weight_kg: weight,
+      height_cm: height,
+      note: note?.trim() || null,
+      updated_at: new Date().toISOString(),
+      updated_by: recorder,
+    };
+    const { error } = await supabase.from("growth_records").upsert(row, { onConflict: "date,student_id" });
+    if (error) return setMessage(error.message);
+    setMessage(`บันทึกน้ำหนัก/ส่วนสูงของ ${student.display_name || student.full_name} แล้ว`);
+    await loadAll();
+  }
+
   async function uploadPhoto(student, file) {
     if (!file) return;
     setLoading(true);
@@ -693,6 +722,15 @@ function App() {
             addParentContact={addParentContact}
             profile={studentProfile(selectedStudent, data)}
             addFollowUp={addFollowUp}
+          />
+        )}
+        {tab === "growth" && (
+          <Growth
+            students={filteredStudents}
+            query={query}
+            setQuery={setQuery}
+            data={data}
+            saveGrowthRecord={saveGrowthRecord}
           />
         )}
         {tab === "reports" && (
@@ -1370,6 +1408,94 @@ function Students({ students, query, setQuery, selectedStudent, setSelectedId, p
   );
 }
 
+function Growth({ students, query, setQuery, data, saveGrowthRecord }) {
+  const [selectedStudentId, setSelectedStudentId] = useState(students[0]?.student_id || "");
+  const [draft, setDraft] = useState({ date: TODAY(), weight_kg: "", height_cm: "", note: "" });
+  const latestByStudent = useMemo(() => latestGrowthByStudent(data.growthRecords), [data.growthRecords]);
+  const selectedStudent = students.find((student) => student.student_id === selectedStudentId) || students[0];
+  const selectedLatest = selectedStudent ? latestByStudent.get(selectedStudent.student_id) : null;
+  const selectedAnalysis = selectedLatest ? analyzeGrowth(selectedLatest.weight_kg, selectedLatest.height_cm) : null;
+  const summary = useMemo(() => buildGrowthSummary(students, latestByStudent), [students, latestByStudent]);
+
+  useEffect(() => {
+    if (!selectedStudentId && students[0]) setSelectedStudentId(students[0].student_id);
+  }, [students, selectedStudentId]);
+
+  function chooseStudent(student) {
+    if (!student) return;
+    const latest = latestByStudent.get(student.student_id);
+    setSelectedStudentId(student.student_id);
+    setDraft({
+      date: TODAY(),
+      weight_kg: latest?.weight_kg ? String(latest.weight_kg) : "",
+      height_cm: latest?.height_cm ? String(latest.height_cm) : "",
+      note: "",
+    });
+  }
+
+  async function submitGrowth(event) {
+    event.preventDefault();
+    if (!selectedStudent) return;
+    await saveGrowthRecord(selectedStudent.student_id, draft.date, draft.weight_kg, draft.height_cm, draft.note);
+  }
+
+  return (
+    <section className="grid-2 growth-page">
+      <Panel title="บันทึกน้ำหนัก/ส่วนสูง">
+        <div className="search"><Search size={16} /><input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="ค้นหาเลขที่/ชื่อ" /></div>
+        <form className="form growth-form" onSubmit={submitGrowth}>
+          <label className="wide">นักเรียน
+            <select value={selectedStudent?.student_id || ""} onChange={(event) => chooseStudent(students.find((student) => student.student_id === event.target.value))}>
+              {students.map((student) => <option key={student.student_id} value={student.student_id}>{student.seq}. {student.full_name}</option>)}
+            </select>
+          </label>
+          <label>วันที่วัด<input type="date" value={draft.date} onChange={(e) => setDraft({ ...draft, date: e.target.value || TODAY() })} /></label>
+          <label>น้ำหนัก (กก.)<input type="number" min="1" max="199" step="0.1" inputMode="decimal" value={draft.weight_kg} onChange={(e) => setDraft({ ...draft, weight_kg: e.target.value })} /></label>
+          <label>ส่วนสูง (ซม.)<input type="number" min="1" max="249" step="0.1" inputMode="decimal" value={draft.height_cm} onChange={(e) => setDraft({ ...draft, height_cm: e.target.value })} /></label>
+          <label className="wide">หมายเหตุ<textarea value={draft.note} onChange={(e) => setDraft({ ...draft, note: e.target.value })} placeholder="เช่น วัดช่วงเช้า / ต้องติดตามโภชนาการ / ผู้ปกครองแจ้งข้อมูลเพิ่ม" /></label>
+          <button className="primary wide" type="submit">บันทึกและวิเคราะห์</button>
+        </form>
+        {selectedStudent && (
+          <div className="growth-current">
+            <strong>{selectedStudent.full_name}</strong>
+            {selectedLatest ? (
+              <p>ล่าสุด {dateText(selectedLatest.date)} · {numberText(selectedLatest.weight_kg)} กก. · {numberText(selectedLatest.height_cm)} ซม. · BMI {selectedAnalysis.bmi}</p>
+            ) : <p>ยังไม่มีข้อมูลน้ำหนัก/ส่วนสูง</p>}
+            {selectedAnalysis && <span className={cx("growth-badge", selectedAnalysis.tone)}>{selectedAnalysis.label}</span>}
+          </div>
+        )}
+      </Panel>
+
+      <Panel title="วิเคราะห์ภาพรวม">
+        <div className="attendance-summary-grid growth-summary-grid">
+          <Info label="มีข้อมูลแล้ว" value={`${summary.recorded}/${students.length}`} />
+          <Info label="ปกติ" value={summary.normal} />
+          <Info label="ผอม/ต่ำกว่าเกณฑ์" value={summary.under} />
+          <Info label="เริ่มเกินเกณฑ์" value={summary.watch} />
+          <Info label="ควรติดตาม" value={summary.focus} />
+        </div>
+        <p className="panel-note">ผลวิเคราะห์นี้เป็นการคัดกรองเบื้องต้นจาก BMI เพื่อช่วยครูติดตาม ไม่ใช่ใบวินิจฉัยทางการแพทย์</p>
+        <div className="compact-list">
+          {students.map((student) => {
+            const latest = latestByStudent.get(student.student_id);
+            const analysis = latest ? analyzeGrowth(latest.weight_kg, latest.height_cm) : null;
+            return (
+              <button className="row-btn growth-row" key={student.student_id} onClick={() => chooseStudent(student)} type="button">
+                <span className="seq">{student.seq}</span>
+                <div>
+                  <strong>{student.full_name}</strong>
+                  <small>{latest ? `${dateText(latest.date)} · ${numberText(latest.weight_kg)} กก. · ${numberText(latest.height_cm)} ซม. · BMI ${analysis.bmi}` : "ยังไม่มีข้อมูล"}</small>
+                </div>
+                <b className={cx("growth-badge", analysis?.tone || "missing")}>{analysis?.label || "ยังไม่วัด"}</b>
+              </button>
+            );
+          })}
+        </div>
+      </Panel>
+    </section>
+  );
+}
+
 function Reports({ students, query, setQuery, selectedStudent, setSelectedId, profile, data, teacherName }) {
   const [reportDraft, setReportDraft] = useState({ summary: "", support: "", teacherNote: "" });
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
@@ -1920,7 +2046,50 @@ function Bar({ label, value, total, tone }) {
 }
 
 function emptyData() {
-  return { teachers: TEACHERS, students: [], attendance: [], homework: [], homeworkStatus: [], behavior: [], followUps: [], parentContacts: [], scores: [] };
+  return { teachers: TEACHERS, students: [], attendance: [], homework: [], homeworkStatus: [], behavior: [], followUps: [], parentContacts: [], scores: [], growthRecords: [] };
+}
+
+function latestGrowthByStudent(records = []) {
+  const map = new Map();
+  records.forEach((record) => {
+    const current = map.get(record.student_id);
+    if (!current || String(record.date) > String(current.date)) {
+      map.set(record.student_id, record);
+    }
+  });
+  return map;
+}
+
+function analyzeGrowth(weightKg, heightCm) {
+  const weight = Number(weightKg);
+  const height = Number(heightCm) / 100;
+  if (!weight || !height) return { bmi: "-", label: "ข้อมูลไม่ครบ", tone: "missing" };
+  const bmi = weight / (height * height);
+  const rounded = Math.round(bmi * 10) / 10;
+  if (rounded < 14.5) return { bmi: rounded.toFixed(1), label: "ผอม/ต่ำกว่าเกณฑ์", tone: "under" };
+  if (rounded < 20) return { bmi: rounded.toFixed(1), label: "ปกติ", tone: "normal" };
+  if (rounded < 24) return { bmi: rounded.toFixed(1), label: "เริ่มเกินเกณฑ์", tone: "watch" };
+  return { bmi: rounded.toFixed(1), label: "ควรติดตาม", tone: "focus" };
+}
+
+function buildGrowthSummary(students, latestByStudent) {
+  const summary = { recorded: 0, normal: 0, under: 0, watch: 0, focus: 0 };
+  students.forEach((student) => {
+    const latest = latestByStudent.get(student.student_id);
+    if (!latest) return;
+    summary.recorded += 1;
+    const tone = analyzeGrowth(latest.weight_kg, latest.height_cm).tone;
+    if (tone === "normal") summary.normal += 1;
+    if (tone === "under") summary.under += 1;
+    if (tone === "watch") summary.watch += 1;
+    if (tone === "focus") summary.focus += 1;
+  });
+  return summary;
+}
+
+function numberText(value) {
+  const number = Number(value);
+  return Number.isFinite(number) ? number.toLocaleString("th-TH", { maximumFractionDigits: 1 }) : "-";
 }
 
 function addDays(dateValue, days) {
