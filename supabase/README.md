@@ -5,7 +5,7 @@
 ## สถานะล่าสุด
 
 - ล้างข้อมูลทดสอบ `TEST` ออกจาก Google Sheets แล้ว
-- Schema Supabase พร้อมสำหรับข้อมูลจริง 35 คน
+- Schema Supabase พร้อมสำหรับข้อมูลจริงของห้อง SMT ป.4/2
 - รองรับตารางหลักของระบบปัจจุบัน:
   - `students`
   - `attendance`
@@ -75,7 +75,7 @@ set teacher_name = excluded.teacher_name,
 -- supabase/seed_students_p4_2.sql
 ```
 
-ไฟล์นี้มีนักเรียนจริง 35 คนของ SMT ป.4/2 และไม่มีข้อมูล TEST
+ไฟล์นี้มีนักเรียนจริงของ SMT ป.4/2 และไม่มีข้อมูล TEST
 
 ## Mapping จากชีตเดิม
 

@@ -21,7 +21,7 @@ import {
   Users,
   X,
 } from "lucide-react";
-import studentSeed from "./data/students_p4_2_35.json";
+import studentSeed from "./data/students_p4_2_roster.json";
 import { getSupabaseClient } from "./supabaseClient";
 
 const CLASS_ID = "c-p4-2";
@@ -322,7 +322,7 @@ function App() {
   }
 
   async function seedStudents() {
-    if (!window.confirm("นำเข้ารายชื่อนักเรียน ป.4/2 จำนวน 35 คนเข้า Supabase ใช่ไหม?")) return;
+    if (!window.confirm(`นำเข้ารายชื่อนักเรียน ป.4/2 จำนวน ${studentSeed.length} คนเข้า Supabase ใช่ไหม?`)) return;
     setLoading(true);
     try {
       const rows = studentSeed.map(normalizeRosterStudent);
@@ -1632,7 +1632,7 @@ function SetupPanel({ students, teachers, seedStudents, importRosterCsvFile, pro
         <Info label="นักเรียนใน Supabase" value={`${students.length} คน`} />
         <Info label="ครูประจำชั้น" value={teachers.join(" / ")} />
         <Info label="บัญชี" value={`${profile?.display_name || "-"} (${profile?.role || "-"})`} />
-        <button className="primary" onClick={seedStudents}>นำเข้ารายชื่อ 35 คน</button>
+        <button className="primary" onClick={seedStudents}>นำเข้ารายชื่อ {studentSeed.length} คน</button>
       </Panel>
       <Panel title="อัปเดตรายชื่อจาก CSV">
         <p className="panel-note">รองรับไฟล์รายชื่อนักเรียนจาก Excel/CSV ภาษาไทย และจะไม่ลบประวัติเช็คชื่อ พฤติกรรม รูป หรือ Timeline เดิม</p>

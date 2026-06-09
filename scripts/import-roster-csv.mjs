@@ -4,7 +4,7 @@ import { createClient } from "@supabase/supabase-js";
 
 const CLASS_ID = "c-p4-2";
 const DEFAULT_INPUT = "C:/Users/picha/Desktop/ประจำชั้น ป.4-2 2569/รายชื่อนักเรียน ปีการศึกษา 2569 - ห้อง4-2.csv";
-const DATA_FILE = "src/data/students_p4_2_35.json";
+const DATA_FILE = "src/data/students_p4_2_roster.json";
 const SQL_FILE = "supabase/seed_students_p4_2.sql";
 const PUSH = process.argv.includes("--push");
 const inputArg = process.argv.find((arg) => !arg.startsWith("--") && arg !== process.argv[0] && arg !== process.argv[1]);
