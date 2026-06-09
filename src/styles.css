@@ -261,6 +261,7 @@ header p { margin: 2px 0 0; color: #65738b; }
 .profile p { color: #65738b; }
 .profile-head { display: flex; align-items: center; gap: 16px; }
 .profile-head.compact { justify-content: space-between; align-items: flex-start; }
+.profile-title-block { flex: 1 1 auto; min-width: 220px; }
 .profile-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
 .nickname { color: #c79a20; font-size: 14px; font-weight: 700; margin-bottom: 2px; }
 .profile-photo, .profile-avatar { width: 120px; height: 120px; border-radius: 18px; object-fit: cover; }
@@ -384,6 +385,31 @@ header p { margin: 2px 0 0; color: #65738b; }
 .growth-badge.watch { background: #ffedd5; color: #9a3412; }
 .growth-badge.focus { background: #fee2e2; color: #991b1b; }
 .growth-badge.missing { background: #e5e7eb; color: #4b5563; }
+.profile-growth-card {
+  flex: 0 0 min(280px, 34%);
+  display: grid;
+  gap: 4px;
+  padding: 12px;
+  border: 1px solid #dde6f2;
+  border-radius: 12px;
+  background: #f8fafc;
+}
+.profile-growth-card span, .profile-growth-card small {
+  color: #65738b;
+  font-size: 12px;
+}
+.profile-growth-card strong { font-size: 16px; }
+.profile-growth-card p { margin: 0; font-size: 13px; }
+.profile-growth-card.normal { border-color: #86efac; background: #ecfdf5; }
+.profile-growth-card.under { border-color: #facc15; background: #fffbeb; }
+.profile-growth-card.watch { border-color: #fdba74; background: #fff7ed; }
+.profile-growth-card.focus { border-color: #fda4af; background: #fff1f2; }
+.profile-growth-card.missing { border-color: #cbd5e1; background: #f8fafc; }
+.growth-analysis-box p { margin: 6px 0 0; color: #65738b; line-height: 1.45; }
+.growth-analysis-box.normal { border-left: 4px solid #22c55e; }
+.growth-analysis-box.under { border-left: 4px solid #f59e0b; }
+.growth-analysis-box.watch { border-left: 4px solid #f97316; }
+.growth-analysis-box.focus { border-left: 4px solid #f43f5e; }
 .steps { margin: 0; padding-left: 22px; color: #34445d; }
 .panel-note { margin: 0 0 10px; color: #65738b; line-height: 1.5; }
 .csv-upload { width: 100%; margin-bottom: 10px; }
@@ -686,6 +712,23 @@ nav button:hover,
   color: rgba(226, 232, 240, .78);
 }
 
+.profile-growth-card {
+  background: rgba(15, 23, 42, .34);
+  border-color: rgba(226, 232, 240, .13);
+}
+
+.profile-growth-card span,
+.profile-growth-card small,
+.growth-analysis-box p {
+  color: rgba(226, 232, 240, .78);
+}
+
+.profile-growth-card.normal { border-color: rgba(52, 211, 153, .42); background: rgba(16, 185, 129, .12); }
+.profile-growth-card.under { border-color: rgba(251, 191, 36, .42); background: rgba(245, 158, 11, .12); }
+.profile-growth-card.watch { border-color: rgba(249, 115, 22, .42); background: rgba(249, 115, 22, .12); }
+.profile-growth-card.focus { border-color: rgba(251, 113, 133, .42); background: rgba(244, 63, 94, .12); }
+.profile-growth-card.missing { border-color: rgba(148, 163, 184, .35); background: rgba(148, 163, 184, .12); }
+
 .growth-badge.normal { background: rgba(16, 185, 129, .18); color: #34d399; }
 .growth-badge.under { background: rgba(245, 158, 11, .2); color: #fbbf24; }
 .growth-badge.watch { background: rgba(249, 115, 22, .2); color: #fdba74; }
@@ -803,6 +846,7 @@ nav button:hover,
   header h1 { font-size: 21px; }
   .metrics, .grid-2, .today-grid, .bulk-attendance, .attendance-summary-grid, .student-layout, .profile-grid, .profile-edit, .growth-form, .contact-form, .report-student, .report-grid, .signature-row { grid-template-columns: 1fr; }
   .profile-head { align-items: flex-start; }
+  .profile-growth-card { flex-basis: 100%; width: 100%; }
   .action-panel, .today-hero { align-items: stretch; flex-direction: column; }
   .student-directory { grid-template-columns: 1fr; }
   .student-modal-backdrop { padding: 10px; align-items: start; }

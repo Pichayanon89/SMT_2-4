@@ -722,6 +722,7 @@ function App() {
             addParentContact={addParentContact}
             profile={studentProfile(selectedStudent, data)}
             addFollowUp={addFollowUp}
+            growthRecords={data.growthRecords}
           />
         )}
         {tab === "growth" && (
@@ -1209,7 +1210,7 @@ function AttendanceLedger({ students, dates, rows, setAttendance, openStudentMon
   );
 }
 
-function Students({ students, query, setQuery, selectedStudent, setSelectedId, photoUrl, uploadPhoto, updateStudentDetails, addParentContact, profile, addFollowUp }) {
+function Students({ students, query, setQuery, selectedStudent, setSelectedId, photoUrl, uploadPhoto, updateStudentDetails, addParentContact, profile, addFollowUp, growthRecords = [] }) {
   const [showCitizenIds, setShowCitizenIds] = useState(false);
   const [isEditingProfile, setIsEditingProfile] = useState(false);
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
@@ -1218,6 +1219,9 @@ function Students({ students, query, setQuery, selectedStudent, setSelectedId, p
   const phoneText = selectedStudent ? [selectedStudent.phone, selectedStudent.phone_2, selectedStudent.phone_3].filter(Boolean).join(" / ") : "";
   const citizenValue = (value) => formatCitizenId(value, showCitizenIds);
   const primaryPhone = [draft.phone, draft.phone_2, draft.phone_3].find((value) => normalizePhone(value));
+  const growthByStudent = useMemo(() => latestGrowthByStudent(growthRecords), [growthRecords]);
+  const selectedGrowth = selectedStudent ? growthByStudent.get(selectedStudent.student_id) : null;
+  const growthAnalysis = selectedGrowth ? analyzeGrowth(selectedGrowth.weight_kg, selectedGrowth.height_cm) : null;
 
   useEffect(() => {
     setDraft({
@@ -1289,7 +1293,7 @@ function Students({ students, query, setQuery, selectedStudent, setSelectedId, p
           <div className="profile">
             <div className="profile-head">
               {photoUrl ? <img className="profile-photo" src={photoUrl} alt={selectedStudent.full_name} /> : <div className="profile-avatar">{selectedStudent.display_name?.[0] || "น"}</div>}
-              <div>
+              <div className="profile-title-block">
                 <div className="nickname">{selectedStudent.nickname || "ยังไม่ระบุชื่อเล่น"}</div>
                 <h2>{selectedStudent.full_name}</h2>
                 <p>เลขที่ {selectedStudent.seq} · เลขประจำตัว {selectedStudent.student_code || "-"}</p>
@@ -1300,6 +1304,12 @@ function Students({ students, query, setQuery, selectedStudent, setSelectedId, p
                   </button>
                   {primaryPhone && <a className="secondary call-btn" href={`tel:${normalizePhone(primaryPhone)}`}>โทรด่วน</a>}
                 </div>
+              </div>
+              <div className={cx("profile-growth-card", growthAnalysis?.tone || "missing")}>
+                <span>ผลคัดกรอง BMI</span>
+                <strong>{growthAnalysis?.label || "ยังไม่มีข้อมูล"}</strong>
+                <p>{selectedGrowth ? `${numberText(selectedGrowth.weight_kg)} กก. · ${numberText(selectedGrowth.height_cm)} ซม. · BMI ${growthAnalysis.bmi}` : "ยังไม่มีน้ำหนัก/ส่วนสูงล่าสุด"}</p>
+                <small>คัดกรองเบื้องต้นจาก BMI</small>
               </div>
             </div>
 
@@ -1374,6 +1384,18 @@ function Students({ students, query, setQuery, selectedStudent, setSelectedId, p
               <Info label="เบอร์สำรอง 2" value={selectedStudent.phone_3} />
               <Info label="ที่อยู่ทะเบียนบ้าน" value={selectedStudent.registered_address} wide />
               <Info label="ที่อยู่ปัจจุบัน" value={selectedStudent.current_address} wide />
+            </ProfileSection>
+
+            <ProfileSection title="น้ำหนัก/ส่วนสูง และ BMI">
+              <Info label="วันที่วัดล่าสุด" value={selectedGrowth ? dateText(selectedGrowth.date) : "-"} />
+              <Info label="น้ำหนัก" value={selectedGrowth ? `${numberText(selectedGrowth.weight_kg)} กก.` : "-"} />
+              <Info label="ส่วนสูง" value={selectedGrowth ? `${numberText(selectedGrowth.height_cm)} ซม.` : "-"} />
+              <Info label="BMI" value={growthAnalysis?.bmi || "-"} />
+              <div className={cx("info wide growth-analysis-box", growthAnalysis?.tone || "missing")}>
+                <span>ผลวิเคราะห์เบื้องต้น</span>
+                <strong>{growthAnalysis?.label || "ยังไม่มีข้อมูลน้ำหนัก/ส่วนสูง"}</strong>
+                <p>ผลวิเคราะห์นี้เป็นการคัดกรองเบื้องต้นจาก BMI เพื่อช่วยครูติดตาม ไม่ใช่ใบวินิจฉัยทางการแพทย์</p>
+              </div>
             </ProfileSection>
 
             <ProfileSection title="วิเคราะห์และติดตาม">
