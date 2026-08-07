@@ -29,6 +29,28 @@ button { cursor: pointer; }
 .logo-pair img { width: 72px; height: 72px; object-fit: contain; border-radius: 50%; border: 1px solid #dfe7f3; background: white; }
 .login-card h1 { margin: 0 0 4px; font-size: 28px; }
 .login-card p { margin: 0 0 20px; color: #65738b; }
+.login-help {
+  display: grid;
+  gap: 8px;
+  margin-top: 14px;
+  text-align: center;
+}
+.login-help small {
+  color: #65738b;
+  line-height: 1.5;
+}
+.link-button {
+  border: 0;
+  background: transparent;
+  color: #0f5f8a;
+  font-weight: 800;
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+.link-button:disabled {
+  cursor: wait;
+  opacity: .65;
+}
 
 .app-shell { min-height: 100vh; display: grid; grid-template-columns: 250px 1fr; }
 aside {
@@ -476,6 +498,7 @@ header h1,
 
 header p,
 .login-card p,
+.login-help small,
 .metric small,
 .metric em,
 .action-panel p,
@@ -517,6 +540,10 @@ main {
 nav button,
 .side-foot button {
   color: #f7e9ff;
+}
+
+.link-button {
+  color: #94f1ff;
 }
 
 nav button.active,

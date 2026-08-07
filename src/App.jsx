@@ -210,6 +210,7 @@ function normalizeRosterStudent(row) {
 function App() {
   const [supabaseReady, setSupabaseReady] = useState(true);
   const [session, setSession] = useState(null);
+  const [recoveryMode, setRecoveryMode] = useState(false);
   const [profile, setProfile] = useState(null);
   const [tab, setTab] = useState("today");
   const [loading, setLoading] = useState(false);
@@ -232,7 +233,13 @@ function App() {
   useEffect(() => {
     if (!supabase) return;
     supabase.auth.getSession().then(({ data: auth }) => setSession(auth.session || null));
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, nextSession) => setSession(nextSession || null));
+    const { data: sub } = supabase.auth.onAuthStateChange((event, nextSession) => {
+      setSession(nextSession || null);
+      if (event === "PASSWORD_RECOVERY") {
+        setRecoveryMode(true);
+        setMessage("เปิดลิงก์กู้รหัสผ่านแล้ว กรุณาตั้งรหัสผ่านใหม่");
+      }
+    });
     return () => sub.subscription.unsubscribe();
   }, [supabase]);
 
@@ -260,6 +267,43 @@ function App() {
       if (error) throw error;
     } catch (error) {
       setMessage(error.message || "เข้าสู่ระบบไม่สำเร็จ");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function sendPasswordReset() {
+    const email = (form.email || "pichayanon@udonthani3.go.th").trim();
+    setLoading(true);
+    setMessage("");
+    try {
+      const redirectTo = `${window.location.origin}${ASSET_BASE}`;
+      const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo });
+      if (error) throw error;
+      setMessage(`ส่งลิงก์ตั้งรหัสผ่านใหม่ไปที่ ${email} แล้ว กรุณาตรวจอีเมล`);
+    } catch (error) {
+      setMessage(error.message || "ส่งลิงก์กู้รหัสผ่านไม่สำเร็จ");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function updatePassword(event) {
+    event.preventDefault();
+    const password = form.newPassword || "";
+    const confirmPassword = form.confirmPassword || "";
+    if (password.length < 8) return setMessage("รหัสผ่านใหม่ควรมีอย่างน้อย 8 ตัวอักษร");
+    if (password !== confirmPassword) return setMessage("รหัสผ่านใหม่ทั้งสองช่องไม่ตรงกัน");
+    setLoading(true);
+    setMessage("");
+    try {
+      const { error } = await supabase.auth.updateUser({ password });
+      if (error) throw error;
+      setRecoveryMode(false);
+      setForm((prev) => ({ ...prev, password: "", newPassword: "", confirmPassword: "" }));
+      setMessage("ตั้งรหัสผ่านใหม่เรียบร้อยแล้ว");
+    } catch (error) {
+      setMessage(error.message || "ตั้งรหัสผ่านใหม่ไม่สำเร็จ");
     } finally {
       setLoading(false);
     }
@@ -655,6 +699,26 @@ function App() {
   }, [selectedStudent?.student_id, selectedStudent?.photo_path]);
 
   if (!supabaseReady) return <SetupMissing />;
+  if (recoveryMode && session) {
+    return (
+      <div className="login-page">
+        <div className="login-card">
+          <div className="logo-pair">
+            <img src={brandAsset("anbnhs.jpg")} alt="โรงเรียน" />
+            <img src={brandAsset("smt4-2.png")} alt="SMT 4/2" />
+          </div>
+          <h1>ตั้งรหัสผ่านใหม่</h1>
+          <p>{CLASS_LABEL} · {SCHOOL_NAME}</p>
+          <form onSubmit={updatePassword} className="form">
+            <label>รหัสผ่านใหม่<input type="password" value={form.newPassword || ""} onChange={(e) => setForm({ ...form, newPassword: e.target.value })} autoComplete="new-password" /></label>
+            <label>ยืนยันรหัสผ่านใหม่<input type="password" value={form.confirmPassword || ""} onChange={(e) => setForm({ ...form, confirmPassword: e.target.value })} autoComplete="new-password" /></label>
+            <button className="primary" disabled={loading}>{loading ? "กำลังบันทึก..." : "บันทึกรหัสผ่านใหม่"}</button>
+          </form>
+          {message && <div className="notice danger">{message}</div>}
+        </div>
+      </div>
+    );
+  }
   if (!session) {
     return (
       <div className="login-page">
@@ -666,10 +730,16 @@ function App() {
           <h1>Teacher Cockpit</h1>
           <p>{CLASS_LABEL} · {SCHOOL_NAME}</p>
           <form onSubmit={login} className="form">
-            <label>อีเมลครู<input type="email" value={form.email || ""} onChange={(e) => setForm({ ...form, email: e.target.value })} /></label>
+            <label>อีเมลครู<input type="email" value={form.email || "pichayanon@udonthani3.go.th"} onChange={(e) => setForm({ ...form, email: e.target.value })} /></label>
             <label>รหัสผ่าน<input type="password" value={form.password || ""} onChange={(e) => setForm({ ...form, password: e.target.value })} /></label>
             <button className="primary" disabled={loading}>{loading ? "กำลังเข้า..." : "เข้าสู่ระบบ"}</button>
           </form>
+          <div className="login-help">
+            <button type="button" className="link-button" onClick={sendPasswordReset} disabled={loading}>
+              ลืมรหัสผ่าน/ส่งลิงก์ตั้งรหัสใหม่
+            </button>
+            <small>ระบบจะส่งลิงก์ไปยังอีเมลครูที่กรอกไว้</small>
+          </div>
           {message && <div className="notice danger">{message}</div>}
         </div>
       </div>
